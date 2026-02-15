@@ -1,0 +1,68 @@
+version: "3.9"
+
+services:
+  postgres_auth:
+    image: postgres:15
+    container_name: postgres_auth
+    environment:
+      POSTGRES_USER: ${AUTH_DB_USER:-authuser}
+      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD:-authpass}
+      POSTGRES_DB: ${AUTH_DB_NAME:-authdb}
+    volumes:
+      - postgres_auth_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${AUTH_DB_USER:-authuser} -d ${AUTH_DB_NAME:-authdb}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app-network
+
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    container_name: auth_service
+    depends_on:
+      postgres_auth:
+        condition: service_healthy
+    environment:
+      # Postgres connection
+      POSTGRES_URL: "postgres://${AUTH_DB_USER:-authuser}:${AUTH_DB_PASSWORD:-authpass}@postgres_auth:5432/${AUTH_DB_NAME:-authdb}?sslmode=disable"
+      # Redis connection
+      # Config path
+      CONFIG_PATH: "/config/config.yaml"
+      # Server port
+      SERVER_PORT: "${AUTH_SERVER_PORT:-8080}"
+      # JWT secrets
+      AUTH_ACCESS_TOKEN_SECRET: "${AUTH_ACCESS_TOKEN_SECRET:-default_access_secret}"
+      AUTH_REFRESH_TOKEN_SECRET: "${AUTH_REFRESH_TOKEN_SECRET:-default_refresh_secret}"
+    volumes:
+      - ./auth-service/config:/config:ro
+    networks:
+      - app-network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://localhost:${AUTH_SERVER_PORT:-8080}/health || exit 1",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    ports:
+      - "${AUTH_SERVER_PORT:-8080}:8080"
+    labels:
+      - app=auth
+      - env=prod
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres_auth_data:

@@ -1,0 +1,19 @@
+app:
+  name: "coworking-auth-service"
+  version: "1.0.0"
+
+http:
+  port: "8080"
+
+logger:
+  level: "debug"
+
+postgres:
+  connect_timeout: 5s
+
+auth:
+  access_token_ttl: 15m
+  refresh_token_ttl: 168h # 7 days
+
+hasher:
+  cost: 4 # prod - 12

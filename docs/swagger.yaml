@@ -1,0 +1,625 @@
+openapi: 3.0.3
+
+info:
+  title: Coworking Booking System – Public API
+  version: 1.0.0
+  description: >
+    Публичное REST API системы бронирования мест в университетском коворкинге.
+    Используется мобильным приложением (Flutter) и веб-панелью администратора.
+    Все запросы проходят через API Gateway.
+
+servers:
+  - url: https://api.coworking.local
+
+tags:
+  - name: Auth
+  - name: Users
+  - name: Coworkings
+  - name: Places
+  - name: Bookings
+  - name: Analytics
+  - name: Admin
+
+paths:
+  ##################
+  # 🔐 AUTH SERVICE
+  ##################
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Регистрация пользователя
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: Пользователь зарегистрирован
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthTokens"
+        "409":
+          description: Пользователь уже существует
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Авторизация пользователя
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: JWT токены
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthTokens"
+        "401":
+          description: Неверные учетные данные
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Обновление access/refresh токенов
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequest"
+      responses:
+        "200":
+          description: Новая пара токенов
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthTokens"
+        "401":
+          description: Невалидный refresh токен
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Выход пользователя (инвалидация refresh токена)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequest"
+      responses:
+        "204":
+          description: Пользователь разлогинен
+
+  /users/me:
+    get:
+      tags: [Users]
+      summary: Получить профиль текущего пользователя
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Профиль пользователя
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Неавторизован
+
+  ##################
+  # 🏢 COWORKINGS
+  ##################
+
+  /coworkings:
+    get:
+      tags: [Coworkings]
+      summary: Получить список коворкингов
+      responses:
+        "200":
+          description: Список коворкингов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Coworking"
+
+  /coworkings/{coworking_id}:
+    get:
+      tags: [Coworkings]
+      summary: Получить коворкинг по ID
+      parameters:
+        - in: path
+          name: coworking_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Коворкинг
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Coworking"
+
+  /coworkings/{coworking_id}/places:
+    get:
+      tags: [Places]
+      summary: Получить места в коворкинге
+      parameters:
+        - in: path
+          name: coworking_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Список мест
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Place"
+
+  ##################
+  # 📅 BOOKINGS
+  ##################
+
+  /bookings:
+    post:
+      tags: [Bookings]
+      summary: Создать бронирование
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBookingRequest"
+      responses:
+        "201":
+          description: Бронирование создано
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+
+    get:
+      tags: [Bookings]
+      summary: История бронирований пользователя
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Список бронирований
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Booking"
+
+  /bookings/{booking_id}:
+    get:
+      tags: [Bookings]
+      summary: Получить бронирование по ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: booking_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Бронирование
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+
+  /bookings/{booking_id}/cancel:
+    post:
+      tags: [Bookings]
+      summary: Отменить бронирование
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: booking_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Бронирование отменено
+
+  ##################
+  # 📊 ANALYTICS
+  ##################
+
+  /analytics/usage:
+    get:
+      tags: [Analytics]
+      summary: Статистика использования коворкинга
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Статистика
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsageStats"
+
+  ##################
+  # 🛠 ADMIN
+  ##################
+
+  /admin/coworkings:
+    get:
+      tags: [Admin]
+      summary: Получить список всех коворкингов (админ)
+      description: Включая неактивные коворкинги
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Список коворкингов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Coworking"
+
+    post:
+      tags: [Admin]
+      summary: Создать коворкинг
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCoworkingRequest"
+      responses:
+        "201":
+          description: Коворкинг создан
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Coworking"
+  /admin/coworkings/{coworking_id}:
+    put:
+      tags: [Admin]
+      summary: Обновить данные коворкинга
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: coworking_id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCoworkingRequest"
+      responses:
+        "200":
+          description: Коворкинг обновлён
+
+    delete:
+      tags: [Admin]
+      summary: Удалить (деактивировать) коворкинг
+      description: Физически не удаляется, помечается как неактивный
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: coworking_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204":
+          description: Коворкинг деактивирован
+  /admin/coworkings/{coworking_id}/places:
+    post:
+      tags: [Admin]
+      summary: Добавить место в коворкинг
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: coworking_id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePlaceRequest"
+      responses:
+        "201":
+          description: Место создано
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Place"
+  /admin/places/{place_id}:
+    put:
+      tags: [Admin]
+      summary: Обновить параметры места
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: place_id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePlaceRequest"
+      responses:
+        "200":
+          description: Место обновлено
+
+    delete:
+      tags: [Admin]
+      summary: Удалить (деактивировать) место
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: place_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204":
+          description: Место деактивировано
+  /admin/bookings:
+    get:
+      tags: [Admin]
+      summary: Получить все бронирования
+      description: С возможностью фильтрации по дате и коворкингу
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: coworking_id
+          schema: { type: string, format: uuid }
+        - in: query
+          name: date
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Список бронирований
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Booking"
+  /admin/bookings/{booking_id}/cancel:
+    post:
+      tags: [Admin]
+      summary: Отменить бронирование пользователя
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: booking_id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Бронирование отменено администратором
+  /admin/analytics/usage:
+    get:
+      tags: [Admin]
+      summary: Расширенная статистика использования
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: coworking_id
+          schema: { type: string, format: uuid }
+        - in: query
+          name: from
+          schema: { type: string, format: date }
+        - in: query
+          name: to
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Детальная статистика
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsageStats"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    RefreshTokenRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+    AuthTokens:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresIn:
+          type: integer
+          example: 900
+
+    RegisterRequest:
+      type: object
+      required: [email, password, name, role_code]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        roleCode:
+          type: string
+          enum: [student, teacher, admin]
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [student, teacher, admin]
+
+    Coworking:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        address:
+          type: string
+
+    CreateCoworkingRequest:
+      type: object
+      required: [name, address]
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+
+    Place:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        label:
+          type: string
+        type:
+          type: string
+        is_available:
+          type: boolean
+
+    Booking:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        place_id:
+          type: string
+          format: uuid
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+        status:
+          type: string
+
+    CreateBookingRequest:
+      type: object
+      required: [place_id, start_time, end_time]
+      properties:
+        place_id:
+          type: string
+          format: uuid
+        start_time:
+          type: string
+          format: date-time
+        end_time:
+          type: string
+          format: date-time
+
+    UsageStats:
+      type: object
+      properties:
+        peak_hours:
+          type: array
+          items:
+            type: integer
+        total_bookings:
+          type: integer
+
+    UpdateCoworkingRequest:
+      type: object
+      properties:
+        name: { type: string }
+        address: { type: string }
+
+    CreatePlaceRequest:
+      type: object
+      required: [label, type]
+      properties:
+        label: { type: string }
+        type: { type: string }
+
+    UpdatePlaceRequest:
+      type: object
+      properties:
+        label: { type: string }
+        type: { type: string }
+        is_available: { type: boolean }
