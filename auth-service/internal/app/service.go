@@ -37,6 +37,7 @@ func (app *App) UserService() *user_service.Service {
 		app.Postgres(),
 		app.Auth(),
 		app.Hasher(),
+		app.cfg.Auth.RefreshTokenTTL,
 	)
 	return app.userService
 }

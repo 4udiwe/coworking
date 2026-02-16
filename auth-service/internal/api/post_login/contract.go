@@ -7,5 +7,11 @@ import (
 )
 
 type UserService interface {
-	Login(ctx context.Context, email string, password string) (*auth.Tokens, error)
+	Login(
+		ctx context.Context,
+		email string,
+		password string,
+		userAgent string,
+		ip string,
+	) (*auth.Tokens, error)
 }

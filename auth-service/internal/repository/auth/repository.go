@@ -2,13 +2,11 @@ package auth_repository
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/4udiwe/avito-pvz/pkg/postgres"
+	"github.com/4udiwe/coworking/auth-service/internal/entity"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/sirupsen/logrus"
 )
 
 type AuthRepository struct {
@@ -19,75 +17,161 @@ func New(pg *postgres.Postgres) *AuthRepository {
 	return &AuthRepository{pg}
 }
 
-func (r *AuthRepository) SaveRefreshToken(
+func (r *AuthRepository) CreateSession(
 	ctx context.Context,
-	userID uuid.UUID,
+	session entity.Session,
 	tokenHash string,
-	expiresAt time.Time,
 ) error {
-
-	logrus.WithField("user_id", userID).Info("Saving refresh token")
 
 	query, args, _ := r.Builder.
 		Insert("refresh_tokens").
-		Columns("user_id", "token_hash", "expires_at").
-		Values(userID, tokenHash, expiresAt).
+		Columns(
+			"id",
+			"user_id",
+			"user_agent",
+			"ip_address",
+			"device_name",
+			"token_hash",
+			"expires_at",
+		).
+		Values(
+			session.ID,
+			session.UserID,
+			session.UserAgent,
+			session.IPAddress,
+			session.DeviceName,
+			tokenHash,
+			session.ExpiresAt,
+		).
 		ToSql()
 
 	_, err := r.GetTxManager(ctx).Exec(ctx, query, args...)
-	if err != nil {
-		logrus.WithError(err).WithField("user_id", userID).Error("SaveRefreshToken failed")
-	}
 	return err
 }
 
-func (r *AuthRepository) GetUserByRefreshToken(
+func (r *AuthRepository) GetSessionByID(
 	ctx context.Context,
-	tokenHash string,
-) (uuid.UUID, error) {
-
-	logrus.WithField("token_hash", tokenHash).Info("Looking up user by refresh token")
+	id uuid.UUID,
+) (entity.Session, error) {
 
 	query, args, _ := r.Builder.
-		Select("user_id").
+		Select(
+			"id",
+			"user_id",
+			"user_agent",
+			"ip_address",
+			"device_name",
+			"expires_at",
+			"last_used_at",
+			"revoked",
+			"created_at",
+		).
 		From("refresh_tokens").
-		Where("token_hash = ?", tokenHash).
-		Where("revoked = false").
-		Where("expires_at > now()").
+		Where("id = ?", id).
 		ToSql()
 
-	var userID uuid.UUID
-	err := r.GetTxManager(ctx).QueryRow(ctx, query, args...).Scan(&userID)
+	var s entity.Session
+	err := r.GetTxManager(ctx).QueryRow(ctx, query, args...).Scan(
+		&s.ID,
+		&s.UserID,
+		&s.UserAgent,
+		&s.IPAddress,
+		&s.DeviceName,
+		&s.ExpiresAt,
+		&s.LastUsedAt,
+		&s.Revoked,
+		&s.CreatedAt,
+	)
 
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			logrus.WithField("token_hash", tokenHash).Warn("Refresh token not found or expired")
-			return uuid.Nil, ErrInvalidRefreshToken
-		}
-		logrus.WithError(err).WithField("token_hash", tokenHash).Error("GetUserByRefreshToken query failed")
-		return uuid.Nil, err
-	}
-
-	logrus.WithField("user_id", userID).Info("Found user by refresh token")
-	return userID, nil
+	return s, err
 }
 
-func (r *AuthRepository) RevokeRefreshToken(
+func (r *AuthRepository) UpdateLastUsedAt(
 	ctx context.Context,
-	tokenHash string,
+	id uuid.UUID,
 ) error {
 
-	logrus.WithField("token_hash", tokenHash).Info("Revoking refresh token")
+	query, args, _ := r.Builder.
+		Update("refresh_tokens").
+		Set("last_used_at", time.Now()).
+		Where("id = ?", id).
+		ToSql()
+
+	_, err := r.GetTxManager(ctx).Exec(ctx, query, args...)
+	return err
+}
+
+func (r *AuthRepository) RevokeSession(
+	ctx context.Context,
+	id uuid.UUID,
+) error {
 
 	query, args, _ := r.Builder.
 		Update("refresh_tokens").
 		Set("revoked", true).
-		Where("token_hash = ?", tokenHash).
+		Where("id = ?", id).
 		ToSql()
 
 	_, err := r.GetTxManager(ctx).Exec(ctx, query, args...)
-	if err != nil {
-		logrus.WithError(err).WithField("token_hash", tokenHash).Error("RevokeRefreshToken failed")
-	}
+
 	return err
+}
+
+func (r *AuthRepository) GetUserSessions(
+	ctx context.Context,
+	userID uuid.UUID,
+	onlyActive bool,
+) ([]entity.Session, error) {
+
+	builder := r.Builder.
+		Select(
+			"id",
+			"user_agent",
+			"ip_address",
+			"device_name",
+			"expires_at",
+			"last_used_at",
+			"revoked",
+			"created_at",
+		).
+		From("refresh_tokens").
+		Where("user_id = ?", userID)
+
+	if onlyActive {
+		builder = builder.
+			Where("revoked = false").
+			Where("expires_at > now()")
+	}
+
+	query, args, _ := builder.
+		OrderBy("created_at DESC").
+		ToSql()
+
+	rows, err := r.GetTxManager(ctx).Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sessions []entity.Session
+
+	for rows.Next() {
+		var s entity.Session
+		err := rows.Scan(
+			&s.ID,
+			&s.UserAgent,
+			&s.IPAddress,
+			&s.DeviceName,
+			&s.ExpiresAt,
+			&s.LastUsedAt,
+			&s.Revoked,
+			&s.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		sessions = append(sessions, s)
+	}
+
+	return sessions, nil
 }

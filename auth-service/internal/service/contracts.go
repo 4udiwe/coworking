@@ -2,7 +2,6 @@ package user_service
 
 import (
 	"context"
-	"time"
 
 	"github.com/4udiwe/coworking/auth-service/internal/auth"
 	"github.com/4udiwe/coworking/auth-service/internal/entity"
@@ -19,15 +18,17 @@ type UserRepository interface {
 }
 
 type AuthRepository interface {
-	SaveRefreshToken(ctx context.Context, userID uuid.UUID, tokenHash string, expiresAt time.Time) error
-	GetUserByRefreshToken(ctx context.Context, tokenHash string) (uuid.UUID, error)
-	RevokeRefreshToken(ctx context.Context, tokenHash string) error
+	CreateSession(ctx context.Context, session entity.Session, tokenHash string) error
+	GetSessionByID(ctx context.Context, id uuid.UUID) (entity.Session, error)
+	UpdateLastUsedAt(ctx context.Context, id uuid.UUID) error
+	RevokeSession(ctx context.Context, id uuid.UUID) error
+	GetUserSessions(ctx context.Context, userID uuid.UUID, onlyActive bool) ([]entity.Session, error)
 }
 
 type Auth interface {
-	GenerateTokens(user entity.User) (*auth.Tokens, error)
-	ValidateAccessToken(tokenString string) (*auth.TokenClaims, error)
-	ValidateRefreshToken(tokenString string) (string, error)
+	GenerateTokens(user entity.User, sessionID uuid.UUID) (*auth.Tokens, error)
+	ValidateAccessToken(tokenString string) (*auth.AccessClaims, error)
+	ParseRefreshToken(tokenString string) (*auth.RefreshClaims, error)
 	HashToken(tokenString string) string
 }
 

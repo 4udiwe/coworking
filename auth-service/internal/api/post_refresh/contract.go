@@ -7,5 +7,10 @@ import (
 )
 
 type UserService interface {
-	Refresh(ctx context.Context, refreshToken string) (*auth.Tokens, error)
+	Refresh(
+		ctx context.Context,
+		refreshToken string,
+		userAgent string,
+		ip string,
+	) (*auth.Tokens, error)
 }

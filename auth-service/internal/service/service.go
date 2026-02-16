@@ -9,8 +9,8 @@ import (
 	"github.com/4udiwe/avito-pvz/pkg/transactor"
 	"github.com/4udiwe/coworking/auth-service/internal/auth"
 	"github.com/4udiwe/coworking/auth-service/internal/entity"
-	auth_repository "github.com/4udiwe/coworking/auth-service/internal/repository/auth"
 	user_repository "github.com/4udiwe/coworking/auth-service/internal/repository/user"
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -20,15 +20,18 @@ type Service struct {
 	tx       transactor.Transactor
 	auth     Auth
 	hasher   Hasher
+
+	refreshTokenTTL time.Duration
 }
 
-func New(userRepo UserRepository, authRepo AuthRepository, tx transactor.Transactor, auth Auth, hasher Hasher) *Service {
+func New(userRepo UserRepository, authRepo AuthRepository, tx transactor.Transactor, auth Auth, hasher Hasher, refreshTokenTTL time.Duration) *Service {
 	return &Service{
-		userRepo: userRepo,
-		authRepo: authRepo,
-		tx:       tx,
-		auth:     auth,
-		hasher:   hasher,
+		userRepo:        userRepo,
+		authRepo:        authRepo,
+		tx:              tx,
+		auth:            auth,
+		hasher:          hasher,
+		refreshTokenTTL: refreshTokenTTL,
 	}
 }
 
@@ -37,6 +40,8 @@ func (s *Service) Register(
 	email string,
 	password string,
 	roleCode string,
+	userAgent string,
+	ip string,
 ) (*auth.Tokens, error) {
 	// Input validation
 	if email == "" {
@@ -97,19 +102,26 @@ func (s *Service) Register(
 			return fmt.Errorf("attach role: %w", err)
 		}
 
+		sessionID := uuid.New()
+
 		// Generate tokens
-		tokens, err = s.auth.GenerateTokens(user)
+		tokens, err = s.auth.GenerateTokens(user, sessionID)
 		if err != nil {
 			logrus.WithError(err).WithField("userID", user.ID).Error("Token generation failed")
 			return fmt.Errorf("%w: %v", ErrTokenGenerationFailed, err)
 		}
 
 		// Save refresh token
-		if err := s.authRepo.SaveRefreshToken(
+		if err := s.authRepo.CreateSession(
 			ctx,
-			user.ID,
+			entity.Session{
+				ID:        sessionID,
+				UserID:    user.ID,
+				UserAgent: userAgent,
+				IPAddress: ip,
+				ExpiresAt: time.Now().Add(s.refreshTokenTTL),
+			},
 			s.auth.HashToken(tokens.RefreshToken),
-			time.Now().Add(7*24*time.Hour),
 		); err != nil {
 			logrus.WithError(err).WithField("userID", user.ID).Error("Failed to save refresh token")
 			return fmt.Errorf("%w: %v", ErrCannotSaveRefreshToken, err)
@@ -139,8 +151,10 @@ func (s *Service) Login(
 	ctx context.Context,
 	email string,
 	password string,
+	userAgent string,
+	ip string,
 ) (*auth.Tokens, error) {
-	// Input validation
+
 	if email == "" {
 		logrus.WithField("field", "email").Warn("Login attempt with empty email")
 		return nil, ErrEmptyEmail
@@ -150,161 +164,130 @@ func (s *Service) Login(
 		return nil, ErrEmptyPassword
 	}
 
-	logrus.WithField("email", email).Info("Login attempt")
-
 	var tokens *auth.Tokens
 
 	err := s.tx.WithinTransaction(ctx, func(ctx context.Context) error {
-		// Get user by email
+
 		user, err := s.userRepo.GetByEmail(ctx, email)
 		if err != nil {
-			if errors.Is(err, user_repository.ErrUserNotFound) {
-				logrus.WithField("email", email).Debug("User not found")
-				return ErrUserNotFound
-			}
-			logrus.WithError(err).WithField("email", email).Error("Failed to retrieve user")
-			return fmt.Errorf("get user by email: %w", err)
+			return ErrUserNotFound
 		}
 
-		// Check if user is active
-		if !user.IsActive {
-			logrus.WithField("email", email).Warn("Login attempt with inactive user")
-			return ErrInvalidCredentials
-		}
-
-		// Verify password
 		if !s.hasher.CheckPasswordHash(password, user.PasswordHash) {
-			logrus.WithField("email", email).Debug("Invalid password")
 			return ErrInvalidCredentials
 		}
 
-		// Generate tokens
-		tokens, err = s.auth.GenerateTokens(user)
+		sessionID := uuid.New()
+
+		tokens, err = s.auth.GenerateTokens(user, sessionID)
 		if err != nil {
-			logrus.WithError(err).WithField("userID", user.ID).Error("Token generation failed")
-			return fmt.Errorf("%w: %v", ErrTokenGenerationFailed, err)
+			return ErrCannotGenerateTokens
 		}
 
-		// Save refresh token
-		if err := s.authRepo.SaveRefreshToken(
+		return s.authRepo.CreateSession(
 			ctx,
-			user.ID,
+			entity.Session{
+				ID:        sessionID,
+				UserID:    user.ID,
+				UserAgent: userAgent,
+				IPAddress: ip,
+				ExpiresAt: time.Now().Add(s.refreshTokenTTL),
+			},
 			s.auth.HashToken(tokens.RefreshToken),
-			time.Now().Add(7*24*time.Hour),
-		); err != nil {
-			logrus.WithError(err).WithField("userID", user.ID).Error("Failed to save refresh token")
-			return fmt.Errorf("%w: %v", ErrCannotSaveRefreshToken, err)
-		}
-
-		return nil
+		)
 	})
 
 	if err != nil {
-		// Don't wrap validation and auth errors
-		if errors.Is(err, ErrInvalidCredentials) ||
-			errors.Is(err, ErrUserNotFound) ||
-			errors.Is(err, ErrEmptyEmail) ||
-			errors.Is(err, ErrEmptyPassword) {
-			return nil, err
-		}
-		logrus.WithError(err).WithField("email", email).Error("Login failed")
 		return nil, ErrInvalidCredentials
 	}
 
-	logrus.WithField("email", email).Info("Login successful")
 	return tokens, nil
 }
 
 func (s *Service) Refresh(
 	ctx context.Context,
 	refreshToken string,
+	userAgent string,
+	ip string,
 ) (*auth.Tokens, error) {
-	// Input validation
+	logrus.WithField("userAgent", userAgent).Info("Refresh token attempt")
+
 	if refreshToken == "" {
-		logrus.WithField("field", "refreshToken").Warn("Refresh attempt with empty token")
 		return nil, ErrEmptyToken
 	}
 
-	logrus.Info("Refresh started")
-
-	// Validate token format
-	email, err := s.auth.ValidateRefreshToken(refreshToken)
+	claims, err := s.auth.ParseRefreshToken(refreshToken)
 	if err != nil {
-		logrus.WithError(err).Debug("Invalid refresh token format")
-		return nil, ErrInvalidRefreshToken
+		logrus.WithError(err).WithField("userAgent", userAgent).Warn("Invalid refresh token")
+		return nil, ErrInvalidRefreshTokenFormat
 	}
 
 	var tokens *auth.Tokens
 
 	err = s.tx.WithinTransaction(ctx, func(ctx context.Context) error {
-		tokenHash := s.auth.HashToken(refreshToken)
 
-		// Get user ID by refresh token
-		userID, err := s.authRepo.GetUserByRefreshToken(ctx, tokenHash)
+		session, err := s.authRepo.GetSessionByID(ctx, claims.SessionID)
 		if err != nil {
-			if errors.Is(err, auth_repository.ErrInvalidRefreshToken) {
-				logrus.WithField("email", email).Debug("Refresh token not found or expired")
-				return ErrInvalidRefreshToken
-			}
-			logrus.WithError(err).Error("Failed to get user by refresh token")
-			return fmt.Errorf("get user by refresh token: %w", err)
+			return ErrSessionNotFound
 		}
 
-		// Get user by ID
-		user, err := s.userRepo.GetByID(ctx, userID)
-		if err != nil {
-			if errors.Is(err, user_repository.ErrUserNotFound) {
-				logrus.WithField("userID", userID).Error("User not found during refresh")
-				return ErrInvalidRefreshToken
-			}
-			logrus.WithError(err).WithField("userID", userID).Error("Failed to retrieve user")
-			return fmt.Errorf("get user by id: %w", err)
+		if session.Revoked || session.ExpiresAt.Before(time.Now()) {
+			return ErrSessionExpired
 		}
 
-		// Check if user is active
+		user, err := s.userRepo.GetByID(ctx, session.UserID)
+		if err != nil {
+			return ErrUserNotFound
+		}
 		if !user.IsActive {
-			logrus.WithField("userID", userID).Warn("Refresh attempt with inactive user")
-			return ErrInvalidRefreshToken
+			return ErrUserInactive
 		}
 
-		// Revoke old refresh token
-		if err := s.authRepo.RevokeRefreshToken(ctx, tokenHash); err != nil {
-			logrus.WithError(err).WithField("userID", userID).Error("Failed to revoke old refresh token")
-			return fmt.Errorf("%w: %v", ErrCannotRevokeRefreshToken, err)
+		// фиксируем использование
+		if err := s.authRepo.UpdateLastUsedAt(ctx, session.ID); err != nil {
+			return ErrCannotUpdateSession
 		}
 
-		// Generate new tokens
-		tokens, err = s.auth.GenerateTokens(user)
+		// ROTATION
+		if err := s.authRepo.RevokeSession(ctx, session.ID); err != nil {
+			return ErrCannotRevokeSession
+		}
+
+		newSessionID := uuid.New()
+
+		tokens, err = s.auth.GenerateTokens(user, newSessionID)
 		if err != nil {
-			logrus.WithError(err).WithField("userID", userID).Error("Token generation failed")
-			return fmt.Errorf("%w: %v", ErrTokenGenerationFailed, err)
+			return ErrCannotGenerateTokens
 		}
 
-		// Save new refresh token
-		if err := s.authRepo.SaveRefreshToken(
+		return s.authRepo.CreateSession(
 			ctx,
-			user.ID,
+			entity.Session{
+				ID:        newSessionID,
+				UserID:    user.ID,
+				UserAgent: userAgent,
+				IPAddress: ip,
+				ExpiresAt: time.Now().Add(s.refreshTokenTTL),
+			},
 			s.auth.HashToken(tokens.RefreshToken),
-			time.Now().Add(7*24*time.Hour),
-		); err != nil {
-			logrus.WithError(err).WithField("userID", userID).Error("Failed to save refresh token")
-			return fmt.Errorf("%w: %v", ErrCannotSaveRefreshToken, err)
-		}
-
-		return nil
+		)
 	})
 
 	if err != nil {
-		// Don't wrap validation errors
-		if errors.Is(err, ErrInvalidRefreshToken) ||
-			errors.Is(err, ErrEmptyToken) {
+		// Don't wrap service errors
+		if errors.Is(err, ErrSessionNotFound) ||
+			errors.Is(err, ErrSessionExpired) ||
+			errors.Is(err, ErrUserNotFound) ||
+			errors.Is(err, ErrCannotUpdateSession) ||
+			errors.Is(err, ErrCannotRevokeSession) ||
+			errors.Is(err, ErrCannotGenerateTokens) ||
+			errors.Is(err, ErrUserInactive) {
 			return nil, err
 		}
-		logrus.WithError(err).Error("Refresh failed")
+		logrus.WithError(err).WithField("userAgent", userAgent).Warn("Refresh token failed")
 		return nil, ErrInvalidRefreshToken
 	}
 
-	logrus.WithField("email", email).Info("Refresh successful")
 	return tokens, nil
 }
 
@@ -312,26 +295,86 @@ func (s *Service) Logout(
 	ctx context.Context,
 	refreshToken string,
 ) error {
-	// Input validation
+
+	claims, err := s.auth.ParseRefreshToken(refreshToken)
+	if err != nil {
+		return ErrInvalidRefreshToken
+	}
+
+	return s.authRepo.RevokeSession(ctx, claims.SessionID)
+}
+
+func (s *Service) GetUserSessions(
+	ctx context.Context,
+	refreshToken string,
+	onlyActive bool,
+) ([]entity.Session, error) {
+	logrus.Info("GetUserSessions attempt")
+
 	if refreshToken == "" {
-		logrus.WithField("field", "refreshToken").Warn("Logout attempt with empty token")
-		return ErrEmptyToken
+		return nil, ErrEmptyToken
 	}
 
-	logrus.Info("Logout started")
+	claims, err := s.auth.ParseRefreshToken(refreshToken)
+	if err != nil {
+		return nil, ErrInvalidRefreshToken
+	}
+	userID := claims.UserID
+	logrus.WithField("user_id", userID).Info("Fetching user sessions")
 
-	tokenHash := s.auth.HashToken(refreshToken)
-
-	// Revoke refresh token
-	if err := s.authRepo.RevokeRefreshToken(ctx, tokenHash); err != nil {
-		if errors.Is(err, auth_repository.ErrInvalidRefreshToken) {
-			logrus.WithField("token_hash", tokenHash).Debug("Token already revoked or not found")
-			return ErrInvalidRefreshToken
-		}
-		logrus.WithError(err).WithField("token_hash", tokenHash).Error("Failed to revoke refresh token")
-		return fmt.Errorf("%w: %v", ErrCannotRevokeRefreshToken, err)
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, ErrUserNotFound
+	}
+	if !user.IsActive {
+		return nil, ErrUserInactive
 	}
 
-	logrus.WithField("token_hash", tokenHash).Info("Refresh token revoked successfully")
+	sessions, err := s.authRepo.GetUserSessions(ctx, userID, onlyActive)
+	if err != nil {
+		return nil, ErrCannotFetchSessions
+	}
+
+	return sessions, nil
+}
+
+func (s *Service) RevokeSession(
+	ctx context.Context,
+	sessionID uuid.UUID,
+) error {
+	logrus.WithField("session_id", sessionID).Info("RevokeSession attempt")
+
+	err := s.authRepo.RevokeSession(ctx, sessionID)
+	if err != nil {
+		logrus.WithError(err).WithField("session_id", sessionID).Error("Failed to revoke session")
+		return ErrCannotRevokeSession
+	}
+
 	return nil
+}
+
+func (s *Service) GetUserInfo(
+	ctx context.Context,
+	refreshToken string,
+) (entity.User, error) {
+	logrus.Info("GetUserInfo attempt")
+
+	if refreshToken == "" {
+		return entity.User{}, ErrEmptyToken
+	}
+
+	claims, err := s.auth.ParseRefreshToken(refreshToken)
+	if err != nil {
+		return entity.User{}, ErrInvalidRefreshToken
+	}
+
+	userID := claims.UserID
+	logrus.WithField("user_id", userID).Info("Fetching user by ID")
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return entity.User{}, ErrUserNotFound
+	}
+
+	
+	return user, nil
 }

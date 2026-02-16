@@ -12,7 +12,6 @@ package mocks
 import (
 	context "context"
 	reflect "reflect"
-	time "time"
 
 	auth "github.com/4udiwe/coworking/auth-service/internal/auth"
 	entity "github.com/4udiwe/coworking/auth-service/internal/entity"
@@ -127,47 +126,76 @@ func (m *MockAuthRepository) EXPECT() *MockAuthRepositoryMockRecorder {
 	return m.recorder
 }
 
-// GetUserByRefreshToken mocks base method.
-func (m *MockAuthRepository) GetUserByRefreshToken(ctx context.Context, tokenHash string) (uuid.UUID, error) {
+// CreateSession mocks base method.
+func (m *MockAuthRepository) CreateSession(ctx context.Context, session entity.Session, tokenHash string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetUserByRefreshToken", ctx, tokenHash)
-	ret0, _ := ret[0].(uuid.UUID)
+	ret := m.ctrl.Call(m, "CreateSession", ctx, session, tokenHash)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateSession indicates an expected call of CreateSession.
+func (mr *MockAuthRepositoryMockRecorder) CreateSession(ctx, session, tokenHash any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSession", reflect.TypeOf((*MockAuthRepository)(nil).CreateSession), ctx, session, tokenHash)
+}
+
+// GetSessionByID mocks base method.
+func (m *MockAuthRepository) GetSessionByID(ctx context.Context, id uuid.UUID) (entity.Session, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSessionByID", ctx, id)
+	ret0, _ := ret[0].(entity.Session)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetUserByRefreshToken indicates an expected call of GetUserByRefreshToken.
-func (mr *MockAuthRepositoryMockRecorder) GetUserByRefreshToken(ctx, tokenHash any) *gomock.Call {
+// GetSessionByID indicates an expected call of GetSessionByID.
+func (mr *MockAuthRepositoryMockRecorder) GetSessionByID(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserByRefreshToken", reflect.TypeOf((*MockAuthRepository)(nil).GetUserByRefreshToken), ctx, tokenHash)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSessionByID", reflect.TypeOf((*MockAuthRepository)(nil).GetSessionByID), ctx, id)
 }
 
-// RevokeRefreshToken mocks base method.
-func (m *MockAuthRepository) RevokeRefreshToken(ctx context.Context, tokenHash string) error {
+// GetUserSessions mocks base method.
+func (m *MockAuthRepository) GetUserSessions(ctx context.Context, userID uuid.UUID, onlyActive bool) ([]entity.Session, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RevokeRefreshToken", ctx, tokenHash)
+	ret := m.ctrl.Call(m, "GetUserSessions", ctx, userID, onlyActive)
+	ret0, _ := ret[0].([]entity.Session)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetUserSessions indicates an expected call of GetUserSessions.
+func (mr *MockAuthRepositoryMockRecorder) GetUserSessions(ctx, userID, onlyActive any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserSessions", reflect.TypeOf((*MockAuthRepository)(nil).GetUserSessions), ctx, userID, onlyActive)
+}
+
+// RevokeSession mocks base method.
+func (m *MockAuthRepository) RevokeSession(ctx context.Context, id uuid.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RevokeSession", ctx, id)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// RevokeRefreshToken indicates an expected call of RevokeRefreshToken.
-func (mr *MockAuthRepositoryMockRecorder) RevokeRefreshToken(ctx, tokenHash any) *gomock.Call {
+// RevokeSession indicates an expected call of RevokeSession.
+func (mr *MockAuthRepositoryMockRecorder) RevokeSession(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevokeRefreshToken", reflect.TypeOf((*MockAuthRepository)(nil).RevokeRefreshToken), ctx, tokenHash)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevokeSession", reflect.TypeOf((*MockAuthRepository)(nil).RevokeSession), ctx, id)
 }
 
-// SaveRefreshToken mocks base method.
-func (m *MockAuthRepository) SaveRefreshToken(ctx context.Context, userID uuid.UUID, tokenHash string, expiresAt time.Time) error {
+// UpdateLastUsedAt mocks base method.
+func (m *MockAuthRepository) UpdateLastUsedAt(ctx context.Context, id uuid.UUID) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SaveRefreshToken", ctx, userID, tokenHash, expiresAt)
+	ret := m.ctrl.Call(m, "UpdateLastUsedAt", ctx, id)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// SaveRefreshToken indicates an expected call of SaveRefreshToken.
-func (mr *MockAuthRepositoryMockRecorder) SaveRefreshToken(ctx, userID, tokenHash, expiresAt any) *gomock.Call {
+// UpdateLastUsedAt indicates an expected call of UpdateLastUsedAt.
+func (mr *MockAuthRepositoryMockRecorder) UpdateLastUsedAt(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveRefreshToken", reflect.TypeOf((*MockAuthRepository)(nil).SaveRefreshToken), ctx, userID, tokenHash, expiresAt)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLastUsedAt", reflect.TypeOf((*MockAuthRepository)(nil).UpdateLastUsedAt), ctx, id)
 }
 
 // MockAuth is a mock of Auth interface.
@@ -195,18 +223,18 @@ func (m *MockAuth) EXPECT() *MockAuthMockRecorder {
 }
 
 // GenerateTokens mocks base method.
-func (m *MockAuth) GenerateTokens(user entity.User) (*auth.Tokens, error) {
+func (m *MockAuth) GenerateTokens(user entity.User, sessionID uuid.UUID) (*auth.Tokens, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GenerateTokens", user)
+	ret := m.ctrl.Call(m, "GenerateTokens", user, sessionID)
 	ret0, _ := ret[0].(*auth.Tokens)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GenerateTokens indicates an expected call of GenerateTokens.
-func (mr *MockAuthMockRecorder) GenerateTokens(user any) *gomock.Call {
+func (mr *MockAuthMockRecorder) GenerateTokens(user, sessionID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenerateTokens", reflect.TypeOf((*MockAuth)(nil).GenerateTokens), user)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenerateTokens", reflect.TypeOf((*MockAuth)(nil).GenerateTokens), user, sessionID)
 }
 
 // HashToken mocks base method.
@@ -223,11 +251,26 @@ func (mr *MockAuthMockRecorder) HashToken(tokenString any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HashToken", reflect.TypeOf((*MockAuth)(nil).HashToken), tokenString)
 }
 
+// ParseRefreshToken mocks base method.
+func (m *MockAuth) ParseRefreshToken(tokenString string) (*auth.RefreshClaims, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ParseRefreshToken", tokenString)
+	ret0, _ := ret[0].(*auth.RefreshClaims)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ParseRefreshToken indicates an expected call of ParseRefreshToken.
+func (mr *MockAuthMockRecorder) ParseRefreshToken(tokenString any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ParseRefreshToken", reflect.TypeOf((*MockAuth)(nil).ParseRefreshToken), tokenString)
+}
+
 // ValidateAccessToken mocks base method.
-func (m *MockAuth) ValidateAccessToken(tokenString string) (*auth.TokenClaims, error) {
+func (m *MockAuth) ValidateAccessToken(tokenString string) (*auth.AccessClaims, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ValidateAccessToken", tokenString)
-	ret0, _ := ret[0].(*auth.TokenClaims)
+	ret0, _ := ret[0].(*auth.AccessClaims)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -236,21 +279,6 @@ func (m *MockAuth) ValidateAccessToken(tokenString string) (*auth.TokenClaims, e
 func (mr *MockAuthMockRecorder) ValidateAccessToken(tokenString any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateAccessToken", reflect.TypeOf((*MockAuth)(nil).ValidateAccessToken), tokenString)
-}
-
-// ValidateRefreshToken mocks base method.
-func (m *MockAuth) ValidateRefreshToken(tokenString string) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ValidateRefreshToken", tokenString)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ValidateRefreshToken indicates an expected call of ValidateRefreshToken.
-func (mr *MockAuthMockRecorder) ValidateRefreshToken(tokenString any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateRefreshToken", reflect.TypeOf((*MockAuth)(nil).ValidateRefreshToken), tokenString)
 }
 
 // MockHasher is a mock of Hasher interface.

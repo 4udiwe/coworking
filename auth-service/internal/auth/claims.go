@@ -11,9 +11,17 @@ type Tokens struct {
 	ExpiresIn    int64  `json:"expires_in"`
 }
 
-type TokenClaims struct {
+// Access token claims
+type AccessClaims struct {
 	UserID uuid.UUID `json:"user_id"`
 	Email  string    `json:"email"`
 	Roles  []string  `json:"roles"`
+	jwt.RegisteredClaims
+}
+
+// Refresh token claims
+type RefreshClaims struct {
+	UserID    uuid.UUID `json:"user_id"`
+	SessionID uuid.UUID `json:"session_id"` // == refresh_tokens.id
 	jwt.RegisteredClaims
 }

@@ -9,7 +9,6 @@ import (
 	"github.com/4udiwe/coworking/auth-service/internal/entity"
 	"github.com/google/uuid"
 	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/sirupsen/logrus"
 )
@@ -68,26 +67,28 @@ func (r *UserRepository) AttachRole(
 
 	logrus.Infof("Attaching role %s to user %s", roleCode, userID)
 
-	query, args, _ := r.Builder.
-		Insert("user_roles").
-		Columns("user_id", "role_id").
-		Select(
-			r.Builder.
-				Select("?", "id").
-				From("roles").
-				Where("code = ?", roleCode),
-		).
-		ToSql()
+	const query = `
+		INSERT INTO user_roles (user_id, role_id)
+		SELECT $1, r.id
+		FROM roles r
+		WHERE r.code = $2
+		ON CONFLICT DO NOTHING
+	`
 
-	cmd, err := r.GetTxManager(ctx).Exec(ctx, query, args...)
+	cmd, err := r.GetTxManager(ctx).Exec(ctx, query, userID, roleCode)
 	if err != nil {
-		logrus.WithError(err).WithFields(logrus.Fields{"user_id": userID, "role": roleCode}).Error("AttachRole failed")
+		logrus.WithError(err).
+			WithFields(logrus.Fields{
+				"user_id": userID,
+				"role":    roleCode,
+			}).
+			Error("AttachRole failed")
 		return fmt.Errorf("attach role: %w", err)
 	}
 
 	if cmd.RowsAffected() == 0 {
-		// roleCode не найден
-		logrus.WithField("role", roleCode).Warn("AttachRole: role not found for user")
+		logrus.WithField("role", roleCode).
+			Warn("AttachRole: role not found")
 		return ErrRoleNotFound
 	}
 
@@ -166,36 +167,83 @@ func (r *UserRepository) GetByID(
 	userID uuid.UUID,
 ) (entity.User, error) {
 
-	logrus.Infof("Fetching user by ID: %s", userID)
-	query, args, _ := r.Builder.
-		Select(
-			"id",
-			"email",
-			"password_hash",
-			"is_active",
-			"created_at",
-			"updated_at",
-		).
-		From("users").
-		Where("id = ?", userID).
-		ToSql()
-	var user entity.User
-	err := r.GetTxManager(ctx).QueryRow(ctx, query, args...).Scan(
-		&user.ID,
-		&user.Email,
-		&user.PasswordHash,
-		&user.IsActive,
-		&user.CreatedAt,
-		&user.UpdatedAt,
-	)
+	logrus.Infof("Fetching user with roles by ID: %s", userID)
+
+	const query = `
+		SELECT
+			u.id,
+			u.email,
+			u.password_hash,
+			u.is_active,
+			u.created_at,
+			u.updated_at,
+			r.id         AS role_id,
+			r.code       AS role_code,
+			r.name       AS role_name,
+			r.created_at AS role_created_at
+		FROM users u
+		LEFT JOIN user_roles ur ON ur.user_id = u.id
+		LEFT JOIN roles r ON r.id = ur.role_id
+		WHERE u.id = $1
+	`
+
+	rows, err := r.GetTxManager(ctx).Query(ctx, query, userID)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			logrus.WithField("user_id", userID).Warn("GetByID: user not found")
-			return entity.User{}, ErrUserNotFound
-		}
 		logrus.WithError(err).WithField("user_id", userID).Error("GetByID: query failed")
 		return entity.User{}, err
 	}
-	logrus.WithFields(logrus.Fields{"user_id": user.ID, "email": user.Email}).Info("User fetched by ID")
+	defer rows.Close()
+
+	var (
+		user  entity.User
+		found bool
+	)
+
+	for rows.Next() {
+		var raw rawUserRole
+
+		err := rows.Scan(
+			&raw.ID,
+			&raw.Email,
+			&raw.PasswordHash,
+			&raw.IsActive,
+			&raw.CreatedAt,
+			&raw.UpdatedAt,
+			&raw.RoleID,
+			&raw.RoleCode,
+			&raw.RoleName,
+			&raw.RoleCreatedAt,
+		)
+		if err != nil {
+			return entity.User{}, err
+		}
+
+		if !found {
+			user = entity.User{
+				ID:           raw.ID,
+				Email:        raw.Email,
+				PasswordHash: raw.PasswordHash,
+				IsActive:     raw.IsActive,
+				CreatedAt:    raw.CreatedAt,
+				UpdatedAt:    raw.UpdatedAt,
+			}
+			found = true
+		}
+
+		// если роль есть (LEFT JOIN может вернуть NULL)
+		if raw.RoleID != uuid.Nil {
+			user.Roles = append(user.Roles, entity.Role{
+				ID:        raw.RoleID,
+				Code:      entity.RoleCode(raw.RoleCode),
+				Name:      raw.RoleName,
+				CreatedAt: raw.RoleCreatedAt,
+			})
+		}
+	}
+
+	if !found {
+		return entity.User{}, ErrUserNotFound
+	}
+
 	return user, nil
 }

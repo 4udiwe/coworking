@@ -11,7 +11,7 @@ import (
 const USER_CLAIMS_KEY = "userClaims"
 
 type AuthRepo interface {
-	ValidateAccessToken(tokenString string) (*auth.TokenClaims, error)
+	ValidateAccessToken(tokenString string) (*auth.AccessClaims, error)
 }
 
 type AuthMiddleware struct {
@@ -48,8 +48,8 @@ func (m *AuthMiddleware) Middleware(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-func GetUserFromContext(c echo.Context) (*auth.TokenClaims, error) {
-	claims, ok := c.Get(USER_CLAIMS_KEY).(*auth.TokenClaims)
+func GetUserFromContext(c echo.Context) (*auth.AccessClaims, error) {
+	claims, ok := c.Get(USER_CLAIMS_KEY).(*auth.AccessClaims)
 	if !ok {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "User not found in context")
 	}

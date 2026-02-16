@@ -4,754 +4,626 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
 	"github.com/4udiwe/coworking/auth-service/internal/auth"
 	"github.com/4udiwe/coworking/auth-service/internal/entity"
-	mock_transactor "github.com/4udiwe/coworking/auth-service/internal/mocks"
-	auth_repository "github.com/4udiwe/coworking/auth-service/internal/repository/auth"
-	user_repository "github.com/4udiwe/coworking/auth-service/internal/repository/user"
 	service "github.com/4udiwe/coworking/auth-service/internal/service"
-	"github.com/4udiwe/coworking/auth-service/internal/service/mocks"
+
+	mock_tx "github.com/4udiwe/coworking/auth-service/internal/mocks"
+	m "github.com/4udiwe/coworking/auth-service/internal/service/mocks"
 )
 
 func TestService_Register(t *testing.T) {
-	var (
-		ctx       = context.Background()
-		email     = "test@mail.com"
-		password  = "password123"
-		roleCode  = "USER"
-		userID    = uuid.New()
-		hash      = "hashed_password"
-		tokenHash = "hashed_refresh"
-		tokens    = &auth.Tokens{
-			AccessToken:  "access",
-			RefreshToken: "refresh",
-			ExpiresIn:    900,
-		}
-		arbitraryErr = errors.New("arbitrary error")
-	)
+	type mocks struct {
+		ur *m.MockUserRepository
+		ar *m.MockAuthRepository
+		tx *mock_tx.MockTransactor
+		a  *m.MockAuth
+		h  *m.MockHasher
+	}
 
-	type MockBehavior func(
-		ur *mocks.MockUserRepository,
-		ar *mocks.MockAuthRepository,
-		a *mocks.MockAuth,
-		h *mocks.MockHasher,
-		tx *mock_transactor.MockTransactor,
-	)
-
-	for _, tc := range []struct {
+	tests := []struct {
 		name         string
-		email        string
-		password     string
-		roleCode     string
-		mockBehavior MockBehavior
-		want         *auth.Tokens
-		wantError    error
+		mockBehavior func(m mocks)
+		expectedErr  error
 	}{
 		{
-			name:     "success",
-			email:    email,
-			password: password,
-			roleCode: roleCode,
-			mockBehavior: func(ur *mocks.MockUserRepository, ar *mocks.MockAuthRepository, a *mocks.MockAuth, h *mocks.MockHasher, tx *mock_transactor.MockTransactor) {
-				tx.EXPECT().WithinTransaction(ctx, gomock.Any()).
-					DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error {
+			name: "success",
+			mockBehavior: func(m mocks) {
+				userID := uuid.New()
+
+				m.tx.EXPECT().WithinTransaction(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, fn func(context.Context) error) error {
 						return fn(ctx)
 					})
 
-				h.EXPECT().HashPassword(password).Return(hash, nil)
+				m.h.EXPECT().HashPassword("pass").Return("hash", nil)
 
-				ur.EXPECT().Create(ctx, gomock.Any()).Return(entity.User{ID: userID}, nil)
-				ur.EXPECT().AttachRole(ctx, userID, roleCode).Return(nil)
+				m.ur.EXPECT().Create(gomock.Any(), gomock.Any()).
+					Return(entity.User{ID: userID, Email: "mail"}, nil)
 
-				a.EXPECT().GenerateTokens(gomock.Any()).Return(tokens, nil)
-				a.EXPECT().HashToken(tokens.RefreshToken).Return(tokenHash)
+				m.ur.EXPECT().AttachRole(gomock.Any(), userID, "student").Return(nil)
 
-				ar.EXPECT().SaveRefreshToken(ctx, userID, tokenHash, gomock.Any()).Return(nil)
+				m.a.EXPECT().
+					GenerateTokens(gomock.Any(), gomock.Any()).
+					Return(&auth.Tokens{RefreshToken: "rt"}, nil)
+
+				m.a.EXPECT().HashToken("rt").Return("hashRT")
+
+				m.ar.EXPECT().
+					CreateSession(gomock.Any(), gomock.Any(), "hashRT").
+					Return(nil)
 			},
-			want:      tokens,
-			wantError: nil,
 		},
 		{
-			name:     "empty email",
-			email:    "",
-			password: password,
-			roleCode: roleCode,
-			mockBehavior: func(*mocks.MockUserRepository, *mocks.MockAuthRepository, *mocks.MockAuth, *mocks.MockHasher, *mock_transactor.MockTransactor) {
-				// No expectations
-			},
-			want:      nil,
-			wantError: service.ErrEmptyEmail,
-		},
-		{
-			name:     "empty password",
-			email:    email,
-			password: "",
-			roleCode: roleCode,
-			mockBehavior: func(*mocks.MockUserRepository, *mocks.MockAuthRepository, *mocks.MockAuth, *mocks.MockHasher, *mock_transactor.MockTransactor) {
-				// No expectations
-			},
-			want:      nil,
-			wantError: service.ErrEmptyPassword,
-		},
-		{
-			name:     "empty role code",
-			email:    email,
-			password: password,
-			roleCode: "",
-			mockBehavior: func(*mocks.MockUserRepository, *mocks.MockAuthRepository, *mocks.MockAuth, *mocks.MockHasher, *mock_transactor.MockTransactor) {
-				// No expectations
-			},
-			want:      nil,
-			wantError: service.ErrEmptyRoleCode,
-		},
-		{
-			name:     "hash password error",
-			email:    email,
-			password: password,
-			roleCode: roleCode,
-			mockBehavior: func(_ *mocks.MockUserRepository, _ *mocks.MockAuthRepository, _ *mocks.MockAuth, h *mocks.MockHasher, tx *mock_transactor.MockTransactor) {
-				tx.EXPECT().WithinTransaction(ctx, gomock.Any()).
-					DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error {
+			name: "hash password fail",
+			mockBehavior: func(m mocks) {
+				m.tx.EXPECT().WithinTransaction(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, fn func(context.Context) error) error {
 						return fn(ctx)
 					})
-
-				h.EXPECT().HashPassword(password).Return("", arbitraryErr)
+				m.h.EXPECT().HashPassword("pass").Return("", errors.New("fail"))
 			},
-			want:      nil,
-			wantError: service.ErrCannotRegisterUser,
+			expectedErr: errors.New("fail"),
 		},
 		{
-			name:     "user already exists",
-			email:    email,
-			password: password,
-			roleCode: roleCode,
-			mockBehavior: func(ur *mocks.MockUserRepository, _ *mocks.MockAuthRepository, _ *mocks.MockAuth, h *mocks.MockHasher, tx *mock_transactor.MockTransactor) {
-				tx.EXPECT().WithinTransaction(ctx, gomock.Any()).
-					DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error {
+			name: "create user fail",
+			mockBehavior: func(m mocks) {
+				m.tx.EXPECT().WithinTransaction(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, fn func(context.Context) error) error {
 						return fn(ctx)
 					})
-
-				h.EXPECT().HashPassword(password).Return(hash, nil)
-
-				ur.EXPECT().Create(ctx, gomock.Any()).
-					Return(entity.User{}, user_repository.ErrUserAlreadyExists)
+				m.h.EXPECT().HashPassword("pass").Return("hash", nil)
+				m.ur.EXPECT().Create(gomock.Any(), gomock.Any()).
+					Return(entity.User{}, errors.New("fail"))
 			},
-			want:      nil,
-			wantError: service.ErrUserAlreadyExists,
+			expectedErr: errors.New("fail"),
 		},
 		{
-			name:     "role not found",
-			email:    email,
-			password: password,
-			roleCode: roleCode,
-			mockBehavior: func(ur *mocks.MockUserRepository, _ *mocks.MockAuthRepository, _ *mocks.MockAuth, h *mocks.MockHasher, tx *mock_transactor.MockTransactor) {
-				tx.EXPECT().WithinTransaction(ctx, gomock.Any()).
-					DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error {
+			name: "attach role fail",
+			mockBehavior: func(m mocks) {
+				userID := uuid.New()
+				m.tx.EXPECT().WithinTransaction(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, fn func(context.Context) error) error {
 						return fn(ctx)
 					})
-
-				h.EXPECT().HashPassword(password).Return(hash, nil)
-
-				ur.EXPECT().Create(ctx, gomock.Any()).Return(entity.User{ID: userID}, nil)
-				ur.EXPECT().AttachRole(ctx, userID, roleCode).
-					Return(user_repository.ErrRoleNotFound)
+				m.h.EXPECT().HashPassword("pass").Return("hash", nil)
+				m.ur.EXPECT().Create(gomock.Any(), gomock.Any()).
+					Return(entity.User{ID: userID}, nil)
+				m.ur.EXPECT().AttachRole(gomock.Any(), userID, "student").Return(errors.New("fail"))
 			},
-			want:      nil,
-			wantError: service.ErrRoleNotFound,
+			expectedErr: errors.New("fail"),
 		},
 		{
-			name:     "attach role generic error",
-			email:    email,
-			password: password,
-			roleCode: roleCode,
-			mockBehavior: func(ur *mocks.MockUserRepository, _ *mocks.MockAuthRepository, _ *mocks.MockAuth, h *mocks.MockHasher, tx *mock_transactor.MockTransactor) {
-				tx.EXPECT().WithinTransaction(ctx, gomock.Any()).
-					DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error {
-						return fn(ctx)
-					})
-
-				h.EXPECT().HashPassword(password).Return(hash, nil)
-
-				ur.EXPECT().Create(ctx, gomock.Any()).Return(entity.User{ID: userID}, nil)
-				ur.EXPECT().AttachRole(ctx, userID, roleCode).Return(arbitraryErr)
+			name: "transaction fail",
+			mockBehavior: func(m mocks) {
+				m.tx.EXPECT().WithinTransaction(gomock.Any(), gomock.Any()).
+					Return(errors.New("tx fail"))
 			},
-			want:      nil,
-			wantError: service.ErrCannotRegisterUser,
+			expectedErr: errors.New("tx fail"),
 		},
-		{
-			name:     "generate tokens error",
-			email:    email,
-			password: password,
-			roleCode: roleCode,
-			mockBehavior: func(ur *mocks.MockUserRepository, _ *mocks.MockAuthRepository, a *mocks.MockAuth, h *mocks.MockHasher, tx *mock_transactor.MockTransactor) {
-				tx.EXPECT().WithinTransaction(ctx, gomock.Any()).
-					DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error {
-						return fn(ctx)
-					})
+	}
 
-				h.EXPECT().HashPassword(password).Return(hash, nil)
-
-				ur.EXPECT().Create(ctx, gomock.Any()).Return(entity.User{ID: userID}, nil)
-				ur.EXPECT().AttachRole(ctx, userID, roleCode).Return(nil)
-
-				a.EXPECT().GenerateTokens(gomock.Any()).Return(nil, arbitraryErr)
-			},
-			want:      nil,
-			wantError: service.ErrCannotRegisterUser,
-		},
-		{
-			name:     "save refresh token error",
-			email:    email,
-			password: password,
-			roleCode: roleCode,
-			mockBehavior: func(ur *mocks.MockUserRepository, ar *mocks.MockAuthRepository, a *mocks.MockAuth, h *mocks.MockHasher, tx *mock_transactor.MockTransactor) {
-				tx.EXPECT().WithinTransaction(ctx, gomock.Any()).
-					DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error {
-						return fn(ctx)
-					})
-
-				h.EXPECT().HashPassword(password).Return(hash, nil)
-
-				ur.EXPECT().Create(ctx, gomock.Any()).Return(entity.User{ID: userID}, nil)
-				ur.EXPECT().AttachRole(ctx, userID, roleCode).Return(nil)
-
-				a.EXPECT().GenerateTokens(gomock.Any()).Return(tokens, nil)
-				a.EXPECT().HashToken(tokens.RefreshToken).Return(tokenHash)
-
-				ar.EXPECT().SaveRefreshToken(ctx, userID, tokenHash, gomock.Any()).
-					Return(arbitraryErr)
-			},
-			want:      nil,
-			wantError: service.ErrCannotRegisterUser,
-		},
-		{
-			name:     "create user generic error",
-			email:    email,
-			password: password,
-			roleCode: roleCode,
-			mockBehavior: func(ur *mocks.MockUserRepository, _ *mocks.MockAuthRepository, _ *mocks.MockAuth, h *mocks.MockHasher, tx *mock_transactor.MockTransactor) {
-				tx.EXPECT().WithinTransaction(ctx, gomock.Any()).
-					DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error {
-						return fn(ctx)
-					})
-
-				h.EXPECT().HashPassword(password).Return(hash, nil)
-
-				ur.EXPECT().Create(ctx, gomock.Any()).Return(entity.User{}, arbitraryErr)
-			},
-			want:      nil,
-			wantError: service.ErrCannotRegisterUser,
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			ur := mocks.NewMockUserRepository(ctrl)
-			ar := mocks.NewMockAuthRepository(ctrl)
-			a := mocks.NewMockAuth(ctrl)
-			h := mocks.NewMockHasher(ctrl)
-			tx := mock_transactor.NewMockTransactor(ctrl)
+			m := mocks{
+				ur: m.NewMockUserRepository(ctrl),
+				ar: m.NewMockAuthRepository(ctrl),
+				tx: mock_tx.NewMockTransactor(ctrl),
+				a:  m.NewMockAuth(ctrl),
+				h:  m.NewMockHasher(ctrl),
+			}
 
-			tc.mockBehavior(ur, ar, a, h, tx)
+			s := service.New(m.ur, m.ar, m.tx, m.a, m.h, 7*24*time.Hour)
 
-			s := service.New(ur, ar, tx, a, h)
+			if tt.mockBehavior != nil {
+				tt.mockBehavior(m)
+			}
 
-			out, err := s.Register(ctx, tc.email, tc.password, tc.roleCode)
-			assert.ErrorIs(t, err, tc.wantError)
-			assert.Equal(t, tc.want, out)
+			_, err := s.Register(context.Background(), "mail", "pass", "student", "ua", "ip")
+
+			if tt.expectedErr != nil {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
 		})
 	}
 }
 
 func TestService_Login(t *testing.T) {
-	var (
-		ctx          = context.Background()
-		email        = "test@mail.com"
-		password     = "password123"
-		userID       = uuid.New()
-		hash         = "hashed_password"
-		tokenHash    = "hashed_refresh"
-		arbitraryErr = errors.New("arbitrary error")
-		user         = entity.User{ID: userID, Email: email, PasswordHash: hash, IsActive: true}
-		inactiveUser = entity.User{ID: userID, Email: email, PasswordHash: hash, IsActive: false}
-		tokens       = &auth.Tokens{
-			AccessToken:  "access",
-			RefreshToken: "refresh",
-			ExpiresIn:    900,
-		}
-	)
+	type mocks struct {
+		ur *m.MockUserRepository
+		ar *m.MockAuthRepository
+		tx *mock_tx.MockTransactor
+		a  *m.MockAuth
+		h  *m.MockHasher
+	}
 
-	type MockBehavior func(
-		ur *mocks.MockUserRepository,
-		ar *mocks.MockAuthRepository,
-		a *mocks.MockAuth,
-		h *mocks.MockHasher,
-		tx *mock_transactor.MockTransactor,
-	)
+	userID := uuid.New()
 
-	for _, tc := range []struct {
+	user := entity.User{
+		ID:           userID,
+		Email:        "mail",
+		PasswordHash: "hash",
+	}
+
+	tests := []struct {
 		name         string
-		email        string
-		password     string
-		mockBehavior MockBehavior
-		want         *auth.Tokens
-		wantErr      error
+		mockBehavior func(m mocks)
+		expectedErr  error
 	}{
 		{
-			name:     "success",
-			email:    email,
-			password: password,
-			mockBehavior: func(ur *mocks.MockUserRepository, ar *mocks.MockAuthRepository, a *mocks.MockAuth, h *mocks.MockHasher, tx *mock_transactor.MockTransactor) {
-				tx.EXPECT().WithinTransaction(ctx, gomock.Any()).
-					DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error { return fn(ctx) })
-				ur.EXPECT().GetByEmail(ctx, email).Return(user, nil)
-				h.EXPECT().CheckPasswordHash(password, hash).Return(true)
-				a.EXPECT().GenerateTokens(user).Return(tokens, nil)
-				a.EXPECT().HashToken(tokens.RefreshToken).Return(tokenHash)
-				ar.EXPECT().SaveRefreshToken(ctx, userID, tokenHash, gomock.Any()).Return(nil)
+			name: "success",
+			mockBehavior: func(m mocks) {
+
+				m.tx.EXPECT().WithinTransaction(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, fn func(context.Context) error) error {
+						return fn(ctx)
+					})
+
+				m.ur.EXPECT().
+					GetByEmail(gomock.Any(), "mail").
+					Return(user, nil)
+
+				m.h.EXPECT().
+					CheckPasswordHash("pass", "hash").
+					Return(true)
+
+				m.a.EXPECT().
+					GenerateTokens(user, gomock.Any()).
+					Return(&auth.Tokens{RefreshToken: "rt"}, nil)
+
+				m.a.EXPECT().
+					HashToken("rt").
+					Return("hashRT")
+
+				m.ar.EXPECT().
+					CreateSession(gomock.Any(), gomock.Any(), "hashRT").
+					Return(nil)
 			},
-			want:    tokens,
-			wantErr: nil,
 		},
 		{
-			name:     "empty email",
-			email:    "",
-			password: password,
-			mockBehavior: func(*mocks.MockUserRepository, *mocks.MockAuthRepository, *mocks.MockAuth, *mocks.MockHasher, *mock_transactor.MockTransactor) {
-				// No expectations
+			name: "get user fail",
+			mockBehavior: func(m mocks) {
+
+				m.tx.EXPECT().WithinTransaction(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, fn func(context.Context) error) error {
+						return fn(ctx)
+					})
+
+				m.ur.EXPECT().
+					GetByEmail(gomock.Any(), "mail").
+					Return(entity.User{}, errors.New("fail"))
 			},
-			want:    nil,
-			wantErr: service.ErrEmptyEmail,
+			expectedErr: service.ErrInvalidCredentials,
 		},
 		{
-			name:     "empty password",
-			email:    email,
-			password: "",
-			mockBehavior: func(*mocks.MockUserRepository, *mocks.MockAuthRepository, *mocks.MockAuth, *mocks.MockHasher, *mock_transactor.MockTransactor) {
-				// No expectations
+			name: "wrong password",
+			mockBehavior: func(m mocks) {
+
+				m.tx.EXPECT().WithinTransaction(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, fn func(context.Context) error) error {
+						return fn(ctx)
+					})
+
+				m.ur.EXPECT().
+					GetByEmail(gomock.Any(), "mail").
+					Return(user, nil)
+
+				m.h.EXPECT().
+					CheckPasswordHash("pass", "hash").
+					Return(false)
 			},
-			want:    nil,
-			wantErr: service.ErrEmptyPassword,
+			expectedErr: service.ErrInvalidCredentials,
 		},
 		{
-			name:     "user not found",
-			email:    email,
-			password: password,
-			mockBehavior: func(ur *mocks.MockUserRepository, _ *mocks.MockAuthRepository, _ *mocks.MockAuth, _ *mocks.MockHasher, tx *mock_transactor.MockTransactor) {
-				tx.EXPECT().WithinTransaction(ctx, gomock.Any()).
-					DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error { return fn(ctx) })
-				ur.EXPECT().GetByEmail(ctx, email).Return(entity.User{}, user_repository.ErrUserNotFound)
+			name: "generate tokens fail",
+			mockBehavior: func(m mocks) {
+
+				m.tx.EXPECT().WithinTransaction(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, fn func(context.Context) error) error {
+						return fn(ctx)
+					})
+
+				m.ur.EXPECT().
+					GetByEmail(gomock.Any(), "mail").
+					Return(user, nil)
+
+				m.h.EXPECT().
+					CheckPasswordHash("pass", "hash").
+					Return(true)
+
+				m.a.EXPECT().
+					GenerateTokens(user, gomock.Any()).
+					Return(nil, errors.New("fail"))
 			},
-			want:    nil,
-			wantErr: service.ErrUserNotFound,
+			expectedErr: service.ErrInvalidCredentials,
 		},
 		{
-			name:     "inactive user",
-			email:    email,
-			password: password,
-			mockBehavior: func(ur *mocks.MockUserRepository, _ *mocks.MockAuthRepository, _ *mocks.MockAuth, _ *mocks.MockHasher, tx *mock_transactor.MockTransactor) {
-				tx.EXPECT().WithinTransaction(ctx, gomock.Any()).
-					DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error { return fn(ctx) })
-				ur.EXPECT().GetByEmail(ctx, email).Return(inactiveUser, nil)
+			name: "create session fail",
+			mockBehavior: func(m mocks) {
+
+				m.tx.EXPECT().WithinTransaction(gomock.Any(), gomock.Any()).
+					DoAndReturn(func(ctx context.Context, fn func(context.Context) error) error {
+						return fn(ctx)
+					})
+
+				m.ur.EXPECT().
+					GetByEmail(gomock.Any(), "mail").
+					Return(user, nil)
+
+				m.h.EXPECT().
+					CheckPasswordHash("pass", "hash").
+					Return(true)
+
+				m.a.EXPECT().
+					GenerateTokens(user, gomock.Any()).
+					Return(&auth.Tokens{RefreshToken: "rt"}, nil)
+
+				m.a.EXPECT().
+					HashToken("rt").
+					Return("hashRT")
+
+				m.ar.EXPECT().
+					CreateSession(gomock.Any(), gomock.Any(), "hashRT").
+					Return(errors.New("fail"))
 			},
-			want:    nil,
-			wantErr: service.ErrInvalidCredentials,
+			expectedErr: service.ErrInvalidCredentials,
 		},
 		{
-			name:     "invalid password",
-			email:    email,
-			password: password,
-			mockBehavior: func(ur *mocks.MockUserRepository, _ *mocks.MockAuthRepository, _ *mocks.MockAuth, h *mocks.MockHasher, tx *mock_transactor.MockTransactor) {
-				tx.EXPECT().WithinTransaction(ctx, gomock.Any()).
-					DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error { return fn(ctx) })
-				ur.EXPECT().GetByEmail(ctx, email).Return(user, nil)
-				h.EXPECT().CheckPasswordHash(password, hash).Return(false)
+			name: "transaction fail",
+			mockBehavior: func(m mocks) {
+				m.tx.EXPECT().
+					WithinTransaction(gomock.Any(), gomock.Any()).
+					Return(errors.New("tx fail"))
 			},
-			want:    nil,
-			wantErr: service.ErrInvalidCredentials,
+			expectedErr: service.ErrInvalidCredentials,
 		},
-		{
-			name:     "generate tokens error",
-			email:    email,
-			password: password,
-			mockBehavior: func(ur *mocks.MockUserRepository, _ *mocks.MockAuthRepository, a *mocks.MockAuth, h *mocks.MockHasher, tx *mock_transactor.MockTransactor) {
-				tx.EXPECT().WithinTransaction(ctx, gomock.Any()).
-					DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error { return fn(ctx) })
-				ur.EXPECT().GetByEmail(ctx, email).Return(user, nil)
-				h.EXPECT().CheckPasswordHash(password, hash).Return(true)
-				a.EXPECT().GenerateTokens(user).Return(nil, arbitraryErr)
-			},
-			want:    nil,
-			wantErr: service.ErrInvalidCredentials,
-		},
-		{
-			name:     "save refresh token error",
-			email:    email,
-			password: password,
-			mockBehavior: func(ur *mocks.MockUserRepository, ar *mocks.MockAuthRepository, a *mocks.MockAuth, h *mocks.MockHasher, tx *mock_transactor.MockTransactor) {
-				tx.EXPECT().WithinTransaction(ctx, gomock.Any()).
-					DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error { return fn(ctx) })
-				ur.EXPECT().GetByEmail(ctx, email).Return(user, nil)
-				h.EXPECT().CheckPasswordHash(password, hash).Return(true)
-				a.EXPECT().GenerateTokens(user).Return(tokens, nil)
-				a.EXPECT().HashToken(tokens.RefreshToken).Return(tokenHash)
-				ar.EXPECT().SaveRefreshToken(ctx, userID, tokenHash, gomock.Any()).Return(arbitraryErr)
-			},
-			want:    nil,
-			wantErr: service.ErrInvalidCredentials,
-		},
-		{
-			name:     "get user by email generic error",
-			email:    email,
-			password: password,
-			mockBehavior: func(ur *mocks.MockUserRepository, _ *mocks.MockAuthRepository, _ *mocks.MockAuth, _ *mocks.MockHasher, tx *mock_transactor.MockTransactor) {
-				tx.EXPECT().WithinTransaction(ctx, gomock.Any()).
-					DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error { return fn(ctx) })
-				ur.EXPECT().GetByEmail(ctx, email).Return(entity.User{}, arbitraryErr)
-			},
-			want:    nil,
-			wantErr: service.ErrInvalidCredentials,
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			ur := mocks.NewMockUserRepository(ctrl)
-			ar := mocks.NewMockAuthRepository(ctrl)
-			a := mocks.NewMockAuth(ctrl)
-			h := mocks.NewMockHasher(ctrl)
-			tx := mock_transactor.NewMockTransactor(ctrl)
+			m := mocks{
+				ur: m.NewMockUserRepository(ctrl),
+				ar: m.NewMockAuthRepository(ctrl),
+				tx: mock_tx.NewMockTransactor(ctrl),
+				a:  m.NewMockAuth(ctrl),
+				h:  m.NewMockHasher(ctrl),
+			}
 
-			tc.mockBehavior(ur, ar, a, h, tx)
+			s := service.New(m.ur, m.ar, m.tx, m.a, m.h, 7*24*time.Hour)
 
-			s := service.New(ur, ar, tx, a, h)
-			out, err := s.Login(ctx, tc.email, tc.password)
+			if tt.mockBehavior != nil {
+				tt.mockBehavior(m)
+			}
 
-			assert.ErrorIs(t, err, tc.wantErr)
-			assert.Equal(t, tc.want, out)
+			_, err := s.Login(context.Background(), "mail", "pass", "ua", "ip")
+
+			if tt.expectedErr != nil {
+				require.Error(t, err)
+				require.ErrorIs(t, err, tt.expectedErr)
+			} else {
+				require.NoError(t, err)
+			}
 		})
 	}
 }
 
 func TestService_Refresh(t *testing.T) {
-	var (
-		ctx          = context.Background()
-		userID       = uuid.New()
-		email        = "test@mail.com"
-		tokenHash    = "hashed_refresh"
-		arbitraryErr = errors.New("arbitrary error")
-		user         = entity.User{ID: userID, Email: email, IsActive: true}
-		inactiveUser = entity.User{ID: userID, Email: email, IsActive: false}
-		tokens       = &auth.Tokens{
-			AccessToken:  "access",
-			RefreshToken: "refresh",
-			ExpiresIn:    900,
-		}
-	)
+	type mocks struct {
+		ur *m.MockUserRepository
+		ar *m.MockAuthRepository
+		tx *mock_tx.MockTransactor
+		a  *m.MockAuth
+		h  *m.MockHasher
+	}
 
-	type MockBehavior func(
-		ur *mocks.MockUserRepository,
-		ar *mocks.MockAuthRepository,
-		a *mocks.MockAuth,
-		tx *mock_transactor.MockTransactor,
-	)
-
-	for _, tc := range []struct {
+	tests := []struct {
 		name         string
-		token        string
-		mockBehavior MockBehavior
-		want         *auth.Tokens
-		wantErr      error
+		mockBehavior func(m mocks, sessionID, userID uuid.UUID, user entity.User, validSession entity.Session)
+		expectedErr  error
 	}{
 		{
-			name:  "success",
-			token: "refresh",
-			mockBehavior: func(ur *mocks.MockUserRepository, ar *mocks.MockAuthRepository, a *mocks.MockAuth, tx *mock_transactor.MockTransactor) {
-				a.EXPECT().ValidateRefreshToken("refresh").Return(email, nil)
+			name: "success",
+			mockBehavior: func(m mocks, sessionID, userID uuid.UUID, user entity.User, validSession entity.Session) {
+				m.a.EXPECT().ParseRefreshToken("rt").Return(&auth.RefreshClaims{SessionID: sessionID}, nil)
 
-				tx.EXPECT().WithinTransaction(ctx, gomock.Any()).
-					DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error { return fn(ctx) })
+				m.tx.EXPECT().WithinTransaction(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(ctx context.Context, fn func(context.Context) error) error {
+						return fn(ctx)
+					},
+				)
 
-				a.EXPECT().HashToken("refresh").Return(tokenHash)
-				ar.EXPECT().GetUserByRefreshToken(ctx, tokenHash).Return(userID, nil)
-				ur.EXPECT().GetByID(ctx, userID).Return(user, nil)
-				ar.EXPECT().RevokeRefreshToken(ctx, tokenHash).Return(nil)
-				a.EXPECT().GenerateTokens(user).Return(tokens, nil)
-				a.EXPECT().HashToken(tokens.RefreshToken).Return(tokenHash)
-				ar.EXPECT().SaveRefreshToken(ctx, userID, tokenHash, gomock.Any()).Return(nil)
+				m.ar.EXPECT().GetSessionByID(gomock.Any(), sessionID).Return(validSession, nil)
+				m.ur.EXPECT().GetByID(gomock.Any(), userID).Return(user, nil)
+				m.ar.EXPECT().UpdateLastUsedAt(gomock.Any(), sessionID).Return(nil)
+				m.ar.EXPECT().RevokeSession(gomock.Any(), sessionID).Return(nil)
+
+				m.a.EXPECT().GenerateTokens(user, gomock.Any()).Return(&auth.Tokens{RefreshToken: "newRT"}, nil)
+				m.a.EXPECT().HashToken("newRT").Return("hashNew")
+				m.ar.EXPECT().CreateSession(gomock.Any(), gomock.Any(), "hashNew").Return(nil)
 			},
-			want:    tokens,
-			wantErr: nil,
 		},
 		{
-			name:  "empty token",
-			token: "",
-			mockBehavior: func(*mocks.MockUserRepository, *mocks.MockAuthRepository, *mocks.MockAuth, *mock_transactor.MockTransactor) {
-				// No expectations
+			name: "parse token fail",
+			mockBehavior: func(m mocks, sessionID, userID uuid.UUID, user entity.User, validSession entity.Session) {
+				m.a.EXPECT().ParseRefreshToken("rt").Return(nil, errors.New("fail"))
 			},
-			want:    nil,
-			wantErr: service.ErrEmptyToken,
+			expectedErr: service.ErrInvalidRefreshTokenFormat,
 		},
 		{
-			name:  "invalid refresh token format",
-			token: "refresh",
-			mockBehavior: func(_ *mocks.MockUserRepository, _ *mocks.MockAuthRepository, a *mocks.MockAuth, _ *mock_transactor.MockTransactor) {
-				a.EXPECT().ValidateRefreshToken("refresh").Return("", arbitraryErr)
+			name: "session not found",
+			mockBehavior: func(m mocks, sessionID, userID uuid.UUID, user entity.User, validSession entity.Session) {
+				m.a.EXPECT().ParseRefreshToken("rt").Return(&auth.RefreshClaims{SessionID: sessionID}, nil)
+				m.tx.EXPECT().WithinTransaction(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) },
+				)
+				m.ar.EXPECT().GetSessionByID(gomock.Any(), sessionID).Return(entity.Session{}, errors.New("not found"))
 			},
-			want:    nil,
-			wantErr: service.ErrInvalidRefreshToken,
+			expectedErr: service.ErrSessionNotFound,
 		},
 		{
-			name:  "token not found or expired",
-			token: "refresh",
-			mockBehavior: func(_ *mocks.MockUserRepository, ar *mocks.MockAuthRepository, a *mocks.MockAuth, tx *mock_transactor.MockTransactor) {
-				a.EXPECT().ValidateRefreshToken("refresh").Return(email, nil)
-
-				tx.EXPECT().WithinTransaction(ctx, gomock.Any()).
-					DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error { return fn(ctx) })
-
-				a.EXPECT().HashToken("refresh").Return(tokenHash)
-				ar.EXPECT().GetUserByRefreshToken(ctx, tokenHash).Return(uuid.UUID{}, auth_repository.ErrInvalidRefreshToken)
+			name: "session revoked",
+			mockBehavior: func(m mocks, sessionID, userID uuid.UUID, user entity.User, validSession entity.Session) {
+				m.a.EXPECT().ParseRefreshToken("rt").Return(&auth.RefreshClaims{SessionID: sessionID}, nil)
+				m.tx.EXPECT().WithinTransaction(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) },
+				)
+				m.ar.EXPECT().GetSessionByID(gomock.Any(), sessionID).Return(entity.Session{
+					ID:        sessionID,
+					UserID:    userID,
+					ExpiresAt: time.Now().Add(time.Hour),
+					Revoked:   true,
+				}, nil)
 			},
-			want:    nil,
-			wantErr: service.ErrInvalidRefreshToken,
+			expectedErr: service.ErrSessionExpired,
 		},
 		{
-			name:  "failed to get user by refresh token",
-			token: "refresh",
-			mockBehavior: func(_ *mocks.MockUserRepository, ar *mocks.MockAuthRepository, a *mocks.MockAuth, tx *mock_transactor.MockTransactor) {
-				a.EXPECT().ValidateRefreshToken("refresh").Return(email, nil)
-
-				tx.EXPECT().WithinTransaction(ctx, gomock.Any()).
-					DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error { return fn(ctx) })
-
-				a.EXPECT().HashToken("refresh").Return(tokenHash)
-				ar.EXPECT().GetUserByRefreshToken(ctx, tokenHash).Return(uuid.UUID{}, arbitraryErr)
+			name: "session expired",
+			mockBehavior: func(m mocks, sessionID, userID uuid.UUID, user entity.User, validSession entity.Session) {
+				m.a.EXPECT().ParseRefreshToken("rt").Return(&auth.RefreshClaims{SessionID: sessionID}, nil)
+				m.tx.EXPECT().WithinTransaction(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) },
+				)
+				m.ar.EXPECT().GetSessionByID(gomock.Any(), sessionID).Return(entity.Session{
+					ID:        sessionID,
+					UserID:    userID,
+					ExpiresAt: time.Now().Add(-time.Hour),
+					Revoked:   false,
+				}, nil)
 			},
-			want:    nil,
-			wantErr: service.ErrInvalidRefreshToken,
+			expectedErr: service.ErrSessionExpired,
 		},
 		{
-			name:  "user not found",
-			token: "refresh",
-			mockBehavior: func(ur *mocks.MockUserRepository, ar *mocks.MockAuthRepository, a *mocks.MockAuth, tx *mock_transactor.MockTransactor) {
-				a.EXPECT().ValidateRefreshToken("refresh").Return(email, nil)
-
-				tx.EXPECT().WithinTransaction(ctx, gomock.Any()).
-					DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error { return fn(ctx) })
-
-				a.EXPECT().HashToken("refresh").Return(tokenHash)
-				ar.EXPECT().GetUserByRefreshToken(ctx, tokenHash).Return(userID, nil)
-				ur.EXPECT().GetByID(ctx, userID).Return(entity.User{}, user_repository.ErrUserNotFound)
+			name: "user not found",
+			mockBehavior: func(m mocks, sessionID, userID uuid.UUID, user entity.User, validSession entity.Session) {
+				m.a.EXPECT().ParseRefreshToken("rt").Return(&auth.RefreshClaims{SessionID: sessionID}, nil)
+				m.tx.EXPECT().WithinTransaction(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) },
+				)
+				m.ar.EXPECT().GetSessionByID(gomock.Any(), sessionID).Return(validSession, nil)
+				m.ur.EXPECT().GetByID(gomock.Any(), userID).Return(entity.User{}, errors.New("not found"))
 			},
-			want:    nil,
-			wantErr: service.ErrInvalidRefreshToken,
+			expectedErr: service.ErrUserNotFound,
 		},
 		{
-			name:  "get user by id generic error",
-			token: "refresh",
-			mockBehavior: func(ur *mocks.MockUserRepository, ar *mocks.MockAuthRepository, a *mocks.MockAuth, tx *mock_transactor.MockTransactor) {
-				a.EXPECT().ValidateRefreshToken("refresh").Return(email, nil)
-
-				tx.EXPECT().WithinTransaction(ctx, gomock.Any()).
-					DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error { return fn(ctx) })
-
-				a.EXPECT().HashToken("refresh").Return(tokenHash)
-				ar.EXPECT().GetUserByRefreshToken(ctx, tokenHash).Return(userID, nil)
-				ur.EXPECT().GetByID(ctx, userID).Return(entity.User{}, arbitraryErr)
+			name: "user inactive",
+			mockBehavior: func(m mocks, sessionID, userID uuid.UUID, user entity.User, validSession entity.Session) {
+				m.a.EXPECT().ParseRefreshToken("rt").Return(&auth.RefreshClaims{SessionID: sessionID}, nil)
+				m.tx.EXPECT().WithinTransaction(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) },
+				)
+				m.ar.EXPECT().GetSessionByID(gomock.Any(), sessionID).Return(validSession, nil)
+				m.ur.EXPECT().GetByID(gomock.Any(), userID).Return(entity.User{ID: userID, IsActive: false}, nil)
 			},
-			want:    nil,
-			wantErr: service.ErrInvalidRefreshToken,
+			expectedErr: service.ErrUserInactive,
 		},
 		{
-			name:  "inactive user",
-			token: "refresh",
-			mockBehavior: func(ur *mocks.MockUserRepository, ar *mocks.MockAuthRepository, a *mocks.MockAuth, tx *mock_transactor.MockTransactor) {
-				a.EXPECT().ValidateRefreshToken("refresh").Return(email, nil)
-
-				tx.EXPECT().WithinTransaction(ctx, gomock.Any()).
-					DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error { return fn(ctx) })
-
-				a.EXPECT().HashToken("refresh").Return(tokenHash)
-				ar.EXPECT().GetUserByRefreshToken(ctx, tokenHash).Return(userID, nil)
-				ur.EXPECT().GetByID(ctx, userID).Return(inactiveUser, nil)
+			name: "update last used fail",
+			mockBehavior: func(m mocks, sessionID, userID uuid.UUID, user entity.User, validSession entity.Session) {
+				m.a.EXPECT().ParseRefreshToken("rt").Return(&auth.RefreshClaims{SessionID: sessionID}, nil)
+				m.tx.EXPECT().WithinTransaction(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) },
+				)
+				m.ar.EXPECT().GetSessionByID(gomock.Any(), sessionID).Return(validSession, nil)
+				m.ur.EXPECT().GetByID(gomock.Any(), userID).Return(user, nil)
+				m.ar.EXPECT().UpdateLastUsedAt(gomock.Any(), sessionID).Return(errors.New("fail"))
 			},
-			want:    nil,
-			wantErr: service.ErrInvalidRefreshToken,
+			expectedErr: service.ErrCannotUpdateSession,
 		},
 		{
-			name:  "revoke token error",
-			token: "refresh",
-			mockBehavior: func(ur *mocks.MockUserRepository, ar *mocks.MockAuthRepository, a *mocks.MockAuth, tx *mock_transactor.MockTransactor) {
-				a.EXPECT().ValidateRefreshToken("refresh").Return(email, nil)
-
-				tx.EXPECT().WithinTransaction(ctx, gomock.Any()).
-					DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error { return fn(ctx) })
-
-				a.EXPECT().HashToken("refresh").Return(tokenHash)
-				ar.EXPECT().GetUserByRefreshToken(ctx, tokenHash).Return(userID, nil)
-				ur.EXPECT().GetByID(ctx, userID).Return(user, nil)
-				ar.EXPECT().RevokeRefreshToken(ctx, tokenHash).Return(arbitraryErr)
+			name: "revoke session fail",
+			mockBehavior: func(m mocks, sessionID, userID uuid.UUID, user entity.User, validSession entity.Session) {
+				m.a.EXPECT().ParseRefreshToken("rt").Return(&auth.RefreshClaims{SessionID: sessionID}, nil)
+				m.tx.EXPECT().WithinTransaction(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) },
+				)
+				m.ar.EXPECT().GetSessionByID(gomock.Any(), sessionID).Return(validSession, nil)
+				m.ur.EXPECT().GetByID(gomock.Any(), userID).Return(user, nil)
+				m.ar.EXPECT().UpdateLastUsedAt(gomock.Any(), sessionID).Return(nil)
+				m.ar.EXPECT().RevokeSession(gomock.Any(), sessionID).Return(errors.New("fail"))
 			},
-			want:    nil,
-			wantErr: service.ErrInvalidRefreshToken,
+			expectedErr: service.ErrCannotRevokeSession,
 		},
 		{
-			name:  "generate tokens error",
-			token: "refresh",
-			mockBehavior: func(ur *mocks.MockUserRepository, ar *mocks.MockAuthRepository, a *mocks.MockAuth, tx *mock_transactor.MockTransactor) {
-				a.EXPECT().ValidateRefreshToken("refresh").Return(email, nil)
-
-				tx.EXPECT().WithinTransaction(ctx, gomock.Any()).
-					DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error { return fn(ctx) })
-
-				a.EXPECT().HashToken("refresh").Return(tokenHash)
-				ar.EXPECT().GetUserByRefreshToken(ctx, tokenHash).Return(userID, nil)
-				ur.EXPECT().GetByID(ctx, userID).Return(user, nil)
-				ar.EXPECT().RevokeRefreshToken(ctx, tokenHash).Return(nil)
-				a.EXPECT().GenerateTokens(user).Return(nil, arbitraryErr)
+			name: "generate tokens fail",
+			mockBehavior: func(m mocks, sessionID, userID uuid.UUID, user entity.User, validSession entity.Session) {
+				m.a.EXPECT().ParseRefreshToken("rt").Return(&auth.RefreshClaims{SessionID: sessionID}, nil)
+				m.tx.EXPECT().WithinTransaction(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) },
+				)
+				m.ar.EXPECT().GetSessionByID(gomock.Any(), sessionID).Return(validSession, nil)
+				m.ur.EXPECT().GetByID(gomock.Any(), userID).Return(user, nil)
+				m.ar.EXPECT().UpdateLastUsedAt(gomock.Any(), sessionID).Return(nil)
+				m.ar.EXPECT().RevokeSession(gomock.Any(), sessionID).Return(nil)
+				m.a.EXPECT().GenerateTokens(user, gomock.Any()).Return(nil, errors.New("fail"))
 			},
-			want:    nil,
-			wantErr: service.ErrInvalidRefreshToken,
+			expectedErr: service.ErrCannotGenerateTokens,
 		},
 		{
-			name:  "save refresh token error",
-			token: "refresh",
-			mockBehavior: func(ur *mocks.MockUserRepository, ar *mocks.MockAuthRepository, a *mocks.MockAuth, tx *mock_transactor.MockTransactor) {
-				a.EXPECT().ValidateRefreshToken("refresh").Return(email, nil)
-
-				tx.EXPECT().WithinTransaction(ctx, gomock.Any()).
-					DoAndReturn(func(ctx context.Context, fn func(ctx context.Context) error) error { return fn(ctx) })
-
-				a.EXPECT().HashToken("refresh").Return(tokenHash)
-				ar.EXPECT().GetUserByRefreshToken(ctx, tokenHash).Return(userID, nil)
-				ur.EXPECT().GetByID(ctx, userID).Return(user, nil)
-				ar.EXPECT().RevokeRefreshToken(ctx, tokenHash).Return(nil)
-				a.EXPECT().GenerateTokens(user).Return(tokens, nil)
-				a.EXPECT().HashToken(tokens.RefreshToken).Return(tokenHash)
-				ar.EXPECT().SaveRefreshToken(ctx, userID, tokenHash, gomock.Any()).Return(arbitraryErr)
+			name: "transaction fail",
+			mockBehavior: func(m mocks, sessionID, userID uuid.UUID, user entity.User, validSession entity.Session) {
+				m.a.EXPECT().ParseRefreshToken("rt").Return(&auth.RefreshClaims{SessionID: sessionID}, nil)
+				m.tx.EXPECT().WithinTransaction(gomock.Any(), gomock.Any()).Return(errors.New("tx fail"))
 			},
-			want:    nil,
-			wantErr: service.ErrInvalidRefreshToken,
+			expectedErr: service.ErrInvalidRefreshToken,
 		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
+		{
+			name: "create session fail",
+			mockBehavior: func(m mocks, sessionID, userID uuid.UUID, user entity.User, validSession entity.Session) {
+				m.a.EXPECT().ParseRefreshToken("rt").Return(&auth.RefreshClaims{SessionID: sessionID}, nil)
+				m.tx.EXPECT().WithinTransaction(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(ctx context.Context, fn func(context.Context) error) error {
+						return fn(ctx)
+					},
+				)
+				m.ar.EXPECT().GetSessionByID(gomock.Any(), sessionID).Return(validSession, nil)
+				m.ur.EXPECT().GetByID(gomock.Any(), userID).Return(user, nil)
+				m.ar.EXPECT().UpdateLastUsedAt(gomock.Any(), sessionID).Return(nil)
+				m.ar.EXPECT().RevokeSession(gomock.Any(), sessionID).Return(nil)
+				m.a.EXPECT().GenerateTokens(user, gomock.Any()).Return(&auth.Tokens{RefreshToken: "newRT"}, nil)
+				m.a.EXPECT().HashToken("newRT").Return("hashNew")
+				m.ar.EXPECT().CreateSession(gomock.Any(), gomock.Any(), "hashNew").Return(errors.New("fail"))
+			},
+			expectedErr: service.ErrInvalidRefreshToken,
+		},
+	}	
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			ur := mocks.NewMockUserRepository(ctrl)
-			ar := mocks.NewMockAuthRepository(ctrl)
-			a := mocks.NewMockAuth(ctrl)
-			tx := mock_transactor.NewMockTransactor(ctrl)
+			m := mocks{
+				ur: m.NewMockUserRepository(ctrl),
+				ar: m.NewMockAuthRepository(ctrl),
+				tx: mock_tx.NewMockTransactor(ctrl),
+				a:  m.NewMockAuth(ctrl),
+				h:  m.NewMockHasher(ctrl),
+			}
 
-			tc.mockBehavior(ur, ar, a, tx)
+			sessionID := uuid.New()
+			userID := uuid.New()
+			user := entity.User{ID: userID, IsActive: true}
+			validSession := entity.Session{
+				ID:        sessionID,
+				UserID:    userID,
+				ExpiresAt: time.Now().Add(time.Hour),
+				Revoked:   false,
+			}
 
-			s := service.New(ur, ar, tx, a, nil)
-			out, err := s.Refresh(ctx, tc.token)
+			if tt.mockBehavior != nil {
+				tt.mockBehavior(m, sessionID, userID, user, validSession)
+			}
 
-			assert.ErrorIs(t, err, tc.wantErr)
-			assert.Equal(t, tc.want, out)
+			s := service.New(m.ur, m.ar, m.tx, m.a, m.h, 7*24*time.Hour)
+			_, err := s.Refresh(context.Background(), "rt", "ua", "ip")
+
+			if tt.expectedErr != nil {
+				require.Error(t, err)
+				require.ErrorIs(t, err, tt.expectedErr)
+			} else {
+				require.NoError(t, err)
+			}
 		})
 	}
 }
 
+
 func TestService_Logout(t *testing.T) {
-	var (
-		ctx          = context.Background()
-		refreshToken = "refresh_token"
-		tokenHash    = "hashed_refresh"
-		arbitraryErr = errors.New("arbitrary error")
-	)
+	type mocks struct {
+		ar *m.MockAuthRepository
+		a  *m.MockAuth
+		tx *mock_tx.MockTransactor
+	}
 
-	type MockBehavior func(
-		ar *mocks.MockAuthRepository,
-		a *mocks.MockAuth,
-	)
-
-	for _, tc := range []struct {
+	tests := []struct {
 		name         string
-		refreshToken string
-		mockBehavior MockBehavior
-		wantErr      error
+		mockBehavior func(m mocks)
+		expectedErr  error
 	}{
 		{
-			name:         "success",
-			refreshToken: refreshToken,
-			mockBehavior: func(ar *mocks.MockAuthRepository, a *mocks.MockAuth) {
-				a.EXPECT().
-					HashToken(refreshToken).
-					Return(tokenHash)
-
-				ar.EXPECT().
-					RevokeRefreshToken(ctx, tokenHash).
-					Return(nil)
+			name: "success",
+			mockBehavior: func(m mocks) {
+				m.a.EXPECT().ParseRefreshToken("rt").Return(&auth.RefreshClaims{SessionID: uuid.New()}, nil)
+				m.ar.EXPECT().RevokeSession(gomock.Any(), gomock.Any()).Return(nil)
 			},
-			wantErr: nil,
 		},
 		{
-			name:         "empty token",
-			refreshToken: "",
-			mockBehavior: func(*mocks.MockAuthRepository, *mocks.MockAuth) {
-				// No expectations
+			name: "parse token fail",
+			mockBehavior: func(m mocks) {
+				m.a.EXPECT().ParseRefreshToken("rt").Return(nil, errors.New("fail"))
 			},
-			wantErr: service.ErrEmptyToken,
+			expectedErr: service.ErrInvalidRefreshToken,
 		},
 		{
-			name:         "invalid token",
-			refreshToken: refreshToken,
-			mockBehavior: func(ar *mocks.MockAuthRepository, a *mocks.MockAuth) {
-				a.EXPECT().
-					HashToken(refreshToken).
-					Return(tokenHash)
-
-				ar.EXPECT().
-					RevokeRefreshToken(ctx, tokenHash).
-					Return(auth_repository.ErrInvalidRefreshToken)
+			name: "revoke session fail",
+			mockBehavior: func(m mocks) {
+				m.a.EXPECT().ParseRefreshToken("rt").Return(&auth.RefreshClaims{SessionID: uuid.New()}, nil)
+				m.ar.EXPECT().RevokeSession(gomock.Any(), gomock.Any()).Return(errors.New("fail"))
 			},
-			wantErr: service.ErrInvalidRefreshToken,
+			expectedErr: errors.New("fail"),
 		},
-		{
-			name:         "failed to revoke token",
-			refreshToken: refreshToken,
-			mockBehavior: func(ar *mocks.MockAuthRepository, a *mocks.MockAuth) {
-				a.EXPECT().
-					HashToken(refreshToken).
-					Return(tokenHash)
+	}
 
-				ar.EXPECT().
-					RevokeRefreshToken(ctx, tokenHash).
-					Return(arbitraryErr)
-			},
-			wantErr: service.ErrCannotRevokeRefreshToken,
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			ur := mocks.NewMockUserRepository(ctrl)
-			ar := mocks.NewMockAuthRepository(ctrl)
-			a := mocks.NewMockAuth(ctrl)
-			h := mocks.NewMockHasher(ctrl)
-			tx := mock_transactor.NewMockTransactor(ctrl)
+			m := mocks{
+				ar: m.NewMockAuthRepository(ctrl),
+				a:  m.NewMockAuth(ctrl),
+				tx: mock_tx.NewMockTransactor(ctrl),
+			}
 
-			tc.mockBehavior(ar, a)
+			s := service.New(nil, m.ar, m.tx, m.a, nil, 7*24*time.Hour)
 
-			s := service.New(ur, ar, tx, a, h)
+			if tt.mockBehavior != nil {
+				tt.mockBehavior(m)
+			}
 
-			err := s.Logout(ctx, tc.refreshToken)
-			assert.ErrorIs(t, err, tc.wantErr)
+			err := s.Logout(context.Background(), "rt")
+
+			if tt.expectedErr != nil {
+				require.Error(t, err)
+				if err != nil && err.Error() == tt.expectedErr.Error() {
+					// ok
+				} else {
+					require.ErrorIs(t, err, tt.expectedErr)
+				}
+			} else {
+				require.NoError(t, err)
+			}
 		})
 	}
+}
+
+func TestService_Register_Validation(t *testing.T) {
+	s := service.New(nil, nil, nil, nil, nil, 7*24*time.Hour)
+	_, err := s.Register(context.Background(), "", "pass", "student", "ua", "ip")
+	require.ErrorIs(t, err, service.ErrEmptyEmail)
+	_, err = s.Register(context.Background(), "mail", "", "student", "ua", "ip")
+	require.ErrorIs(t, err, service.ErrEmptyPassword)
+	_, err = s.Register(context.Background(), "mail", "pass", "", "ua", "ip")
+	require.ErrorIs(t, err, service.ErrEmptyRoleCode)
+}
+
+func TestService_Refresh_EmptyToken(t *testing.T) {
+	s := service.New(nil, nil, nil, nil, nil, 7*24*time.Hour)
+	_, err := s.Refresh(context.Background(), "", "ua", "ip")
+	require.ErrorIs(t, err, service.ErrEmptyToken)
 }

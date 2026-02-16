@@ -1,4 +1,4 @@
-package post_refresh
+package get_active_sessions
 
 import (
 	"errors"
@@ -9,6 +9,8 @@ import (
 	user_service "github.com/4udiwe/coworking/auth-service/internal/service"
 	"github.com/labstack/echo/v4"
 )
+
+const ONLY_ACTIVE = true
 
 type handler struct {
 	s UserService
@@ -23,22 +25,21 @@ type Request struct {
 }
 
 func (h *handler) Handle(ctx echo.Context, in Request) error {
-	userAgent := ctx.Request().UserAgent()
-	ip := ctx.RealIP()
-
-	tokens, err := h.s.Refresh(ctx.Request().Context(), in.RefreshToken, userAgent, ip)
+	sessions, err := h.s.GetUserSessions(ctx.Request().Context(), in.RefreshToken, ONLY_ACTIVE)
 
 	if err != nil {
 		// Validation errors
-		if errors.Is(err, user_service.ErrEmptyToken) {
+		if errors.Is(err, user_service.ErrEmptyToken) ||
+			errors.Is(err, user_service.ErrInvalidRefreshToken) {
 			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 		}
 		// Authentication errors
-		if errors.Is(err, user_service.ErrInvalidRefreshToken) {
+		if errors.Is(err, user_service.ErrUserInactive) ||
+			errors.Is(err, user_service.ErrUserNotFound) {
 			return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 		}
 		// Any other error is internal server error
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	return ctx.JSON(http.StatusOK, tokens)
+	return ctx.JSON(http.StatusOK, sessions)
 }

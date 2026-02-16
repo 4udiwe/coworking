@@ -8,6 +8,7 @@ import (
 	"github.com/4udiwe/avito-pvz/pkg/postgres"
 	"github.com/4udiwe/coworking/auth-service/config"
 	"github.com/4udiwe/coworking/auth-service/internal/api"
+	"github.com/4udiwe/coworking/auth-service/internal/api/middleware"
 	"github.com/4udiwe/coworking/auth-service/internal/auth"
 	"github.com/4udiwe/coworking/auth-service/internal/database"
 	"github.com/4udiwe/coworking/auth-service/internal/hasher"
@@ -36,16 +37,24 @@ type App struct {
 	userService *user_service.Service
 
 	// Handlers
-	postLoginHandler    api.Handler
-	postLogoutHandler   api.Handler
-	postRefreshHandler  api.Handler
-	postRegisterHandler api.Handler
+	postLoginHandler         api.Handler
+	postLogoutHandler        api.Handler
+	postRefreshHandler       api.Handler
+	postRegisterHandler      api.Handler
+	postRevokeSessionHandler api.Handler
+
+	getMeHandler             api.Handler
+	getAllSessionsHandler    api.Handler
+	getActiveSessionsHandler api.Handler
 
 	// Auth
 	auth *auth.Auth
 
 	// Hasher
 	hasher *hasher.BcryptHasher
+
+	// Middleware
+	authMW *middleware.AuthMiddleware
 }
 
 func New(configPath string) *App {

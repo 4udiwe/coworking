@@ -19,12 +19,15 @@ func New(userService UserService) api.Handler {
 }
 
 type Request struct {
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required,min=8,max=64"`
+	Email     string `json:"email" validate:"required,email"`
+	Password  string `json:"password" validate:"required,min=8,max=64"`
 }
 
 func (h *handler) Handle(ctx echo.Context, in Request) error {
-	tokens, err := h.s.Login(ctx.Request().Context(), in.Email, in.Password)
+	userAgent := ctx.Request().UserAgent()
+	ip := ctx.RealIP()
+
+	tokens, err := h.s.Login(ctx.Request().Context(), in.Email, in.Password, userAgent, ip)
 
 	if err != nil {
 		// Validation errors
@@ -35,10 +38,10 @@ func (h *handler) Handle(ctx echo.Context, in Request) error {
 		// Authentication errors
 		if errors.Is(err, user_service.ErrInvalidCredentials) ||
 			errors.Is(err, user_service.ErrUserNotFound) {
-			return echo.NewHTTPError(http.StatusUnauthorized, "Invalid email or password")
+			return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 		}
 		// Any other error is internal server error
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to login")
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	return ctx.JSON(http.StatusOK, tokens)
 }

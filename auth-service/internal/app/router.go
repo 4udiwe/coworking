@@ -36,11 +36,12 @@ func (app *App) configureRouter(handler *echo.Echo) {
 		authGroup.POST("/register", app.PostRegisterHandler().Handle)
 	}
 
-	userGroup := handler.Group("users")
+	userGroup := handler.Group("users", app.AuthMiddleware().Middleware)
 	{
-		userGroup.GET("/me", func(c echo.Context) error {
-			return c.JSON(http.StatusOK, map[string]interface{}{"message": "unimplemented"})
-		})
+		userGroup.GET("/me", app.GetMeHandler().Handle)
+		userGroup.GET("/sessions/active", app.GetActiveSessionsHandler().Handle)
+		userGroup.GET("/sessions/all", app.GetAllSessionsHandler().Handle)
+		userGroup.POST("/sessions/revoke", app.PostRevokeSessionHandler().Handle)
 	}
 
 	handler.GET("/health", func(c echo.Context) error { return c.NoContent(http.StatusOK) })

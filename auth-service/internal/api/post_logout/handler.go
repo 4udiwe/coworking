@@ -36,7 +36,7 @@ func (h *handler) Handle(ctx echo.Context, in Request) error {
 			return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 		}
 		// Any other error is internal server error
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to logout")
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	return ctx.NoContent(http.StatusNoContent)
 }

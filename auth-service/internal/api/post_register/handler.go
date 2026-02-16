@@ -25,7 +25,14 @@ type Request struct {
 }
 
 func (h *handler) Handle(ctx echo.Context, in Request) error {
-	tokens, err := h.s.Register(ctx.Request().Context(), in.Email, in.Password, in.RoleCode)
+	userAgent := ctx.Request().UserAgent()
+	ip := ctx.RealIP()
+	deviceName := ctx.Request().Header.Get("X-Device-Name")
+	if deviceName != "" {
+		userAgent += " (" + deviceName + ")"
+	}
+
+	tokens, err := h.s.Register(ctx.Request().Context(), in.Email, in.Password, in.RoleCode, userAgent, ip)
 
 	if err != nil {
 		// Validation errors
@@ -33,14 +40,14 @@ func (h *handler) Handle(ctx echo.Context, in Request) error {
 			errors.Is(err, user_service.ErrEmptyPassword) ||
 			errors.Is(err, user_service.ErrEmptyRoleCode) ||
 			errors.Is(err, user_service.ErrRoleNotFound) ||
-			errors.Is(err, user_service.ErrPasswordHashingFailed) {
+			errors.Is(err, user_service.ErrUserAlreadyExists) {
 			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 		}
 		if errors.Is(err, user_service.ErrUserAlreadyExists) {
 			return echo.NewHTTPError(http.StatusConflict, err.Error())
 		}
 		// Any other error is internal server error
-		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to register user")
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	return ctx.JSON(http.StatusCreated, tokens)
 }

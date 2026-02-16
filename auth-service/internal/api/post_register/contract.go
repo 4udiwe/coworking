@@ -7,5 +7,12 @@ import (
 )
 
 type UserService interface {
-	Register(ctx context.Context, email string, password string, roleCode string) (*auth.Tokens, error)
+	Register(
+		ctx context.Context,
+		email string,
+		password string,
+		roleCode string,
+		userAgent string,
+		ip string,
+	) (*auth.Tokens, error)
 }
