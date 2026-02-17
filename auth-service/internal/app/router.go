@@ -31,7 +31,7 @@ func (app *App) configureRouter(handler *echo.Echo) {
 	authGroup := handler.Group("auth")
 	{
 		authGroup.POST("/login", app.PostLoginHandler().Handle)
-		authGroup.POST("/logout", app.PostLogoutHandler().Handle)
+		authGroup.POST("/logout", app.PostLogoutHandler().Handle, app.AuthMiddleware().Middleware)
 		authGroup.POST("/refresh", app.PostRefreshHandler().Handle)
 		authGroup.POST("/register", app.PostRegisterHandler().Handle)
 	}
