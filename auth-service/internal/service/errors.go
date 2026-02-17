@@ -24,6 +24,7 @@ var (
 	ErrEmptyPassword = errors.New("password cannot be empty")
 	ErrEmptyRoleCode = errors.New("role code cannot be empty")
 	ErrEmptyToken    = errors.New("token cannot be empty")
+	ErrEmptyUserID   = errors.New("user ID cannot be empty")
 
 	// Service errors
 	ErrCannotRegisterUser       = errors.New("cannot register user")

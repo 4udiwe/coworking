@@ -11,6 +11,7 @@ type UserService interface {
 		ctx context.Context,
 		refreshToken string,
 		userAgent string,
+		deviceInfo string,
 		ip string,
 	) (*auth.Tokens, error)
 }

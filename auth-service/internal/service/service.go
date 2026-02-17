@@ -41,6 +41,7 @@ func (s *Service) Register(
 	password string,
 	roleCode string,
 	userAgent string,
+	deviceInfo string,
 	ip string,
 ) (*auth.Tokens, error) {
 	// Input validation
@@ -115,11 +116,12 @@ func (s *Service) Register(
 		if err := s.authRepo.CreateSession(
 			ctx,
 			entity.Session{
-				ID:        sessionID,
-				UserID:    user.ID,
-				UserAgent: userAgent,
-				IPAddress: ip,
-				ExpiresAt: time.Now().Add(s.refreshTokenTTL),
+				ID:         sessionID,
+				UserID:     user.ID,
+				UserAgent:  userAgent,
+				IPAddress:  ip,
+				DeviceName: &deviceInfo,
+				ExpiresAt:  time.Now().Add(s.refreshTokenTTL),
 			},
 			s.auth.HashToken(tokens.RefreshToken),
 		); err != nil {
@@ -152,6 +154,7 @@ func (s *Service) Login(
 	email string,
 	password string,
 	userAgent string,
+	deviceInfo string,
 	ip string,
 ) (*auth.Tokens, error) {
 
@@ -187,11 +190,12 @@ func (s *Service) Login(
 		return s.authRepo.CreateSession(
 			ctx,
 			entity.Session{
-				ID:        sessionID,
-				UserID:    user.ID,
-				UserAgent: userAgent,
-				IPAddress: ip,
-				ExpiresAt: time.Now().Add(s.refreshTokenTTL),
+				ID:         sessionID,
+				UserID:     user.ID,
+				UserAgent:  userAgent,
+				IPAddress:  ip,
+				DeviceName: &deviceInfo,
+				ExpiresAt:  time.Now().Add(s.refreshTokenTTL),
 			},
 			s.auth.HashToken(tokens.RefreshToken),
 		)
@@ -208,6 +212,7 @@ func (s *Service) Refresh(
 	ctx context.Context,
 	refreshToken string,
 	userAgent string,
+	deviceInfo string,
 	ip string,
 ) (*auth.Tokens, error) {
 	logrus.WithField("userAgent", userAgent).Info("Refresh token attempt")
@@ -263,11 +268,12 @@ func (s *Service) Refresh(
 		return s.authRepo.CreateSession(
 			ctx,
 			entity.Session{
-				ID:        newSessionID,
-				UserID:    user.ID,
-				UserAgent: userAgent,
-				IPAddress: ip,
-				ExpiresAt: time.Now().Add(s.refreshTokenTTL),
+				ID:         newSessionID,
+				UserID:     user.ID,
+				UserAgent:  userAgent,
+				IPAddress:  ip,
+				DeviceName: &deviceInfo,
+				ExpiresAt:  time.Now().Add(s.refreshTokenTTL),
 			},
 			s.auth.HashToken(tokens.RefreshToken),
 		)
@@ -306,20 +312,15 @@ func (s *Service) Logout(
 
 func (s *Service) GetUserSessions(
 	ctx context.Context,
-	refreshToken string,
+	userID uuid.UUID,
 	onlyActive bool,
 ) ([]entity.Session, error) {
 	logrus.Info("GetUserSessions attempt")
 
-	if refreshToken == "" {
-		return nil, ErrEmptyToken
+	if userID == uuid.Nil {
+		return nil, ErrEmptyUserID
 	}
 
-	claims, err := s.auth.ParseRefreshToken(refreshToken)
-	if err != nil {
-		return nil, ErrInvalidRefreshToken
-	}
-	userID := claims.UserID
 	logrus.WithField("user_id", userID).Info("Fetching user sessions")
 
 	user, err := s.userRepo.GetByID(ctx, userID)
@@ -355,26 +356,19 @@ func (s *Service) RevokeSession(
 
 func (s *Service) GetUserInfo(
 	ctx context.Context,
-	refreshToken string,
+	userID uuid.UUID,
 ) (entity.User, error) {
 	logrus.Info("GetUserInfo attempt")
 
-	if refreshToken == "" {
-		return entity.User{}, ErrEmptyToken
+	if userID == uuid.Nil {
+		return entity.User{}, ErrEmptyUserID
 	}
 
-	claims, err := s.auth.ParseRefreshToken(refreshToken)
-	if err != nil {
-		return entity.User{}, ErrInvalidRefreshToken
-	}
-
-	userID := claims.UserID
 	logrus.WithField("user_id", userID).Info("Fetching user by ID")
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		return entity.User{}, ErrUserNotFound
 	}
 
-	
 	return user, nil
 }

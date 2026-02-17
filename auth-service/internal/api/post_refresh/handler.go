@@ -26,7 +26,9 @@ func (h *handler) Handle(ctx echo.Context, in Request) error {
 	userAgent := ctx.Request().UserAgent()
 	ip := ctx.RealIP()
 
-	tokens, err := h.s.Refresh(ctx.Request().Context(), in.RefreshToken, userAgent, ip)
+	deviceName := api.ExtractDeviceName(userAgent)
+
+	tokens, err := h.s.Refresh(ctx.Request().Context(), in.RefreshToken, userAgent, deviceName, ip)
 
 	if err != nil {
 		// Validation errors

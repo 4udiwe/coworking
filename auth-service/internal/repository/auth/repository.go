@@ -126,6 +126,7 @@ func (r *AuthRepository) GetUserSessions(
 	builder := r.Builder.
 		Select(
 			"id",
+			"user_id",
 			"user_agent",
 			"ip_address",
 			"device_name",
@@ -159,6 +160,7 @@ func (r *AuthRepository) GetUserSessions(
 		var s entity.Session
 		err := rows.Scan(
 			&s.ID,
+			&s.UserID,
 			&s.UserAgent,
 			&s.IPAddress,
 			&s.DeviceName,

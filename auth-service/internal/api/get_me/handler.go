@@ -6,6 +6,7 @@ import (
 
 	api "github.com/4udiwe/coworking/auth-service/internal/api"
 	"github.com/4udiwe/coworking/auth-service/internal/api/decorator"
+	"github.com/4udiwe/coworking/auth-service/internal/api/middleware"
 	"github.com/4udiwe/coworking/auth-service/internal/entity"
 	user_service "github.com/4udiwe/coworking/auth-service/internal/service"
 	"github.com/labstack/echo/v4"
@@ -20,9 +21,7 @@ func New(userService UserService) api.Handler {
 	return decorator.NewBindAndValidateDerocator(&handler{s: userService})
 }
 
-type Request struct {
-	RefreshToken string `json:"refreshToken" validate:"required"`
-}
+type Request struct{}
 
 type ResponseUser struct {
 	ID        string         `json:"id"`
@@ -40,12 +39,15 @@ type ResponseRole struct {
 }
 
 func (h *handler) Handle(ctx echo.Context, in Request) error {
-	user, err := h.s.GetUserInfo(ctx.Request().Context(), in.RefreshToken)
+	claims, err := middleware.GetUserFromContext(ctx)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	}
+	user, err := h.s.GetUserInfo(ctx.Request().Context(), claims.UserID)
 
 	if err != nil {
 		// Validation errors
-		if errors.Is(err, user_service.ErrEmptyToken) ||
-			errors.Is(err, user_service.ErrInvalidRefreshToken) {
+		if errors.Is(err, user_service.ErrEmptyUserID) {
 			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 		}
 		// Authentication errors

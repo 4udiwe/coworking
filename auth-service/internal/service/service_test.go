@@ -128,7 +128,7 @@ func TestService_Register(t *testing.T) {
 				tt.mockBehavior(m)
 			}
 
-			_, err := s.Register(context.Background(), "mail", "pass", "student", "ua", "ip")
+			_, err := s.Register(context.Background(), "mail", "pass", "student", "ua", "device", "ip")
 
 			if tt.expectedErr != nil {
 				require.Error(t, err)
@@ -310,7 +310,7 @@ func TestService_Login(t *testing.T) {
 				tt.mockBehavior(m)
 			}
 
-			_, err := s.Login(context.Background(), "mail", "pass", "ua", "ip")
+			_, err := s.Login(context.Background(), "mail", "pass", "ua", "device", "ip")
 
 			if tt.expectedErr != nil {
 				require.Error(t, err)
@@ -530,7 +530,7 @@ func TestService_Refresh(t *testing.T) {
 			}
 
 			s := service.New(m.ur, m.ar, m.tx, m.a, m.h, 7*24*time.Hour)
-			_, err := s.Refresh(context.Background(), "rt", "ua", "ip")
+			_, err := s.Refresh(context.Background(), "rt", "ua", "device", "ip")
 
 			if tt.expectedErr != nil {
 				require.Error(t, err)
@@ -614,16 +614,16 @@ func TestService_Logout(t *testing.T) {
 
 func TestService_Register_Validation(t *testing.T) {
 	s := service.New(nil, nil, nil, nil, nil, 7*24*time.Hour)
-	_, err := s.Register(context.Background(), "", "pass", "student", "ua", "ip")
+	_, err := s.Register(context.Background(), "", "pass", "student", "ua", "device", "ip")
 	require.ErrorIs(t, err, service.ErrEmptyEmail)
-	_, err = s.Register(context.Background(), "mail", "", "student", "ua", "ip")
+	_, err = s.Register(context.Background(), "mail", "", "student", "ua", "device", "ip")
 	require.ErrorIs(t, err, service.ErrEmptyPassword)
-	_, err = s.Register(context.Background(), "mail", "pass", "", "ua", "ip")
+	_, err = s.Register(context.Background(), "mail", "pass", "", "ua", "device", "ip")
 	require.ErrorIs(t, err, service.ErrEmptyRoleCode)
 }
 
 func TestService_Refresh_EmptyToken(t *testing.T) {
 	s := service.New(nil, nil, nil, nil, nil, 7*24*time.Hour)
-	_, err := s.Refresh(context.Background(), "", "ua", "ip")
+	_, err := s.Refresh(context.Background(), "", "ua", "device", "ip")
 	require.ErrorIs(t, err, service.ErrEmptyToken)
 }

@@ -12,6 +12,7 @@ type UserService interface {
 		email string,
 		password string,
 		userAgent string,
+		deviceInfo string,
 		ip string,
 	) (*auth.Tokens, error)
 }

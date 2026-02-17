@@ -27,12 +27,10 @@ type Request struct {
 func (h *handler) Handle(ctx echo.Context, in Request) error {
 	userAgent := ctx.Request().UserAgent()
 	ip := ctx.RealIP()
-	deviceName := ctx.Request().Header.Get("X-Device-Name")
-	if deviceName != "" {
-		userAgent += " (" + deviceName + ")"
-	}
 
-	tokens, err := h.s.Register(ctx.Request().Context(), in.Email, in.Password, in.RoleCode, userAgent, ip)
+	deviceName := api.ExtractDeviceName(userAgent)
+
+	tokens, err := h.s.Register(ctx.Request().Context(), in.Email, in.Password, in.RoleCode, userAgent, deviceName, ip)
 
 	if err != nil {
 		// Validation errors
