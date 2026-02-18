@@ -1,0 +1,26 @@
+{
+    "formatVersion": 1,
+    "canvas": {
+        "width": 2000,
+        "height": 1200
+    },
+    "walls": [
+        {
+            "id": "wall-1",
+            "x": 0,
+            "y": 0,
+            "width": 2000,
+            "height": 20,
+            "rotation": 0
+        }
+    ],
+    "places": [
+        {
+            "id": "place-uuid",
+            "type": "open_desk",
+            "x": 200,
+            "y": 300,
+            "rotation": 0
+        }
+    ]
+}
