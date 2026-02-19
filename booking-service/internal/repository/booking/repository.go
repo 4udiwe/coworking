@@ -8,7 +8,6 @@ import (
 	"github.com/4udiwe/avito-pvz/pkg/postgres"
 	"github.com/4udiwe/cowoking/booking-service/internal/entity"
 	. "github.com/4udiwe/cowoking/booking-service/internal/repository"
-	"github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/samber/lo"
@@ -16,10 +15,10 @@ import (
 )
 
 type BookingRepository struct {
-	*postgres.Postgres
+	postgres.Postgres
 }
 
-func New(pg *postgres.Postgres) *BookingRepository {
+func New(pg postgres.Postgres) *BookingRepository {
 	return &BookingRepository{
 		Postgres: pg,
 	}
@@ -46,7 +45,7 @@ func (r *BookingRepository) Create(
 			booking.Place.ID,
 			booking.StartTime,
 			booking.EndTime,
-			squirrel.Expr("(SELECT id FROM booking_status WHERE name = ?)", booking.Status),
+			StatusActive,
 		).
 		ToSql()
 
@@ -174,11 +173,11 @@ func (r *BookingRepository) Cancel(
 
 	query, args, _ := r.Builder.
 		Update("booking").
-		Set("status_id", squirrel.Expr("(SELECT id FROM booking_status WHERE name = ?)", entity.BookingStatusCancelled)).
+		Set("status_id", StatusCancelled).
 		Set("cancel_reason", reason).
 		Set("cancelled_at", time.Now()).
 		Set("updated_at", time.Now()).
-		Where("status_id = ?", squirrel.Expr("(SELECT id FROM booking_status WHERE name = ?)", entity.BookingStatusActive)).
+		Where("status_id = ?", StatusActive).
 		Where("id = ?", id).
 		ToSql()
 
@@ -204,9 +203,9 @@ func (r *BookingRepository) MarkCompleted(
 
 	query, args, _ := r.Builder.
 		Update("booking").
-		Set("status_id", squirrel.Expr("(SELECT id FROM booking_status WHERE name = ?)", entity.BookingStatusCompleted)).
+		Set("status_id", StatusCompleted).
 		Set("updated_at", time.Now()).
-		Where("status_id = ?", squirrel.Expr("(SELECT id FROM booking_status WHERE name = ?)", entity.BookingStatusActive)).
+		Where("status_id = ?", StatusActive).
 		Where("id = ?", id).
 		ToSql()
 

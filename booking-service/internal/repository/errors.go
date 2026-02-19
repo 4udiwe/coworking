@@ -1,4 +1,4 @@
-package booking_repository
+package repository
 
 import (
 	"errors"
@@ -7,17 +7,24 @@ import (
 	"github.com/jackc/pgerrcode"
 )
 
+const (
+	StatusActive    = 1
+	StatusCancelled = 2
+	StatusCompleted = 3
+)
+
 var (
-	ErrBookingAlreadyExists = errors.New("booking already exists")
-	ErrBookingNotFound      = errors.New("booking not found")
-	ErrBookingTimeConflict  = errors.New("booking time conflict")
-	ErrInvalidBookingTime   = errors.New("invalid booking time")
-	ErrInvalidDuration      = errors.New("invalid booking duration")
-	ErrInvalidStatus        = errors.New("invalid booking status")
+	ErrAlreadyExists       = errors.New("booking already exists")
+	ErrBookingNotFound     = errors.New("booking not found")
+	ErrBookingTimeConflict = errors.New("booking time conflict")
+	ErrInvalidBookingTime  = errors.New("invalid booking time")
+	ErrInvalidDuration     = errors.New("invalid booking duration")
+	ErrInvalidStatus       = errors.New("invalid booking status")
 
 	ErrPlaceNotFound = errors.New("place not found")
 
 	ErrCoworkingNotFound = errors.New("coworking not found")
+	ErrLayoutNotFound    = errors.New("layout version not found")
 )
 
 func MapPgError(err error) error {
@@ -36,7 +43,7 @@ func MapPgError(err error) error {
 	// UNIQUE
 	// ============================
 	case pgerrcode.UniqueViolation:
-		return ErrBookingAlreadyExists
+		return ErrAlreadyExists
 
 	// ============================
 	// FK

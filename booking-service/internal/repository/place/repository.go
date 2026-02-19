@@ -8,6 +8,7 @@ import (
 	"github.com/4udiwe/avito-pvz/pkg/postgres"
 	"github.com/4udiwe/cowoking/booking-service/internal/entity"
 	. "github.com/4udiwe/cowoking/booking-service/internal/repository"
+	"github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/samber/lo"
@@ -15,10 +16,10 @@ import (
 )
 
 type PlaceRepository struct {
-	*postgres.Postgres
+	postgres.Postgres
 }
 
-func New(pg *postgres.Postgres) *PlaceRepository {
+func New(pg postgres.Postgres) *PlaceRepository {
 	return &PlaceRepository{
 		Postgres: pg,
 	}
@@ -193,7 +194,7 @@ func (r *PlaceRepository) GetAvailableByCoworking(
 	return lo.Map(rawPlaces, func(r rawPlaceCoworking, _ int) entity.Place {
 		return r.toEntity()
 	}), nil
-}	
+}
 
 func (r *PlaceRepository) SetActive(
 	ctx context.Context,
@@ -206,11 +207,38 @@ func (r *PlaceRepository) SetActive(
 		Set("is_active", active).
 		Where("id = ?", id).
 		ToSql()
-	
+
 	_, err := r.GetTxManager(ctx).Exec(ctx, query, args...)
 	if err != nil {
 		logrus.WithError(err).WithField("place_id", id.String()).Error("failed to set place active")
 		return err
-	}	
+	}
 	return nil
+}
+
+func (r *PlaceRepository) CheckHasActiveBookings(
+	ctx context.Context,
+	placeID uuid.UUID,
+) (bool, error) {
+
+	query, args, _ := r.Builder.
+		Select("1").
+		From("booking").
+		Where("place_id = ?", placeID).
+		Where("status_id = ?", squirrel.Expr("SELECT id FROM booking_status WHERE name = ?", entity.BookingStatusActive)).
+		Limit(1).
+		ToSql()
+
+	var hasActive bool
+
+	err := r.GetTxManager(ctx).QueryRow(ctx, query, args...).Scan(&hasActive)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
+		}
+		logrus.WithError(err).WithField("place_id", placeID.String()).Error("failed to check active bookings for place")
+		return false, err
+	}
+
+	return hasActive, nil
 }
