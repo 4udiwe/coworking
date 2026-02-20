@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	api "github.com/4udiwe/coworking/auth-service/internal/api"
-	"github.com/4udiwe/coworking/auth-service/internal/api/decorator"
 	user_service "github.com/4udiwe/coworking/auth-service/internal/service"
+	"github.com/4udiwe/coworking/auth-service/pgk/decorator"
 	"github.com/labstack/echo/v4"
 )
 

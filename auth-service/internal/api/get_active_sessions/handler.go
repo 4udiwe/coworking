@@ -5,10 +5,10 @@ import (
 	"net/http"
 
 	api "github.com/4udiwe/coworking/auth-service/internal/api"
-	"github.com/4udiwe/coworking/auth-service/internal/api/decorator"
 	"github.com/4udiwe/coworking/auth-service/internal/api/middleware"
 	"github.com/4udiwe/coworking/auth-service/internal/entity"
 	user_service "github.com/4udiwe/coworking/auth-service/internal/service"
+	"github.com/4udiwe/coworking/auth-service/pgk/decorator"
 	"github.com/labstack/echo/v4"
 	"github.com/samber/lo"
 )
