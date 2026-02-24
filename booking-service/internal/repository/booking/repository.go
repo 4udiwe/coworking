@@ -27,12 +27,11 @@ func New(pg postgres.Postgres) *BookingRepository {
 func (r *BookingRepository) Create(
 	ctx context.Context,
 	booking entity.Booking,
-) error {
+) (uuid.UUID, error) {
 
 	query, args, _ := r.Builder.
 		Insert("booking").
 		Columns(
-			"id",
 			"user_id",
 			"place_id",
 			"start_time",
@@ -40,16 +39,17 @@ func (r *BookingRepository) Create(
 			"status_id",
 		).
 		Values(
-			booking.ID,
 			booking.UserID,
 			booking.Place.ID,
 			booking.StartTime,
 			booking.EndTime,
 			StatusActive,
 		).
+		Suffix("RETURNING id").
 		ToSql()
 
-	_, err := r.GetTxManager(ctx).Exec(ctx, query, args...)
+	var ID uuid.UUID
+	rows, err := r.GetTxManager(ctx).Query(ctx, query, args...)
 	if err != nil {
 		mapped := MapPgError(err)
 
@@ -58,12 +58,21 @@ func (r *BookingRepository) Create(
 			"place_id":   booking.Place.ID.String(),
 			"user_id":    booking.UserID.String(),
 		}).Warn("failed to create booking")
-		return mapped
+		return uuid.Nil, mapped
+	}
+
+	err = rows.Scan(&ID)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"booking_id": booking.ID.String(),
+			"place_id":   booking.Place.ID.String(),
+			"user_id":    booking.UserID.String(),
+		}).Warn("scan error")
 	}
 
 	logrus.WithField("booking_id", booking.ID.String()).Info("booking created")
 
-	return nil
+	return ID, nil
 }
 
 func (r *BookingRepository) GetByID(

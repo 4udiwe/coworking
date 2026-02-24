@@ -9,7 +9,7 @@ import (
 )
 
 type BookingRepository interface {
-	Create(ctx context.Context, booking entity.Booking) error
+	Create(ctx context.Context, booking entity.Booking) (uuid.UUID, error)
 	GetByID(ctx context.Context, id uuid.UUID) (entity.Booking, error)
 	ListByUser(ctx context.Context, userID uuid.UUID) ([]entity.Booking, error)
 	Cancel(ctx context.Context, id uuid.UUID, reason *string) error
@@ -38,4 +38,8 @@ type CoworkingRepository interface {
 	GetLatestLayout(ctx context.Context, coworkingID uuid.UUID) (entity.CoworkingLayout, error)
 	GetLayoutByVersion(ctx context.Context, coworkingID uuid.UUID, version int) (entity.CoworkingLayout, error)
 	ListLayoutVersions(ctx context.Context, coworkingID uuid.UUID) ([]entity.CoworkingLayoutVersionTime, error)
+}
+
+type OutboxRepo interface {
+	Create(ctx context.Context, ev entity.OutboxEvent) error
 }

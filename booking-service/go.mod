@@ -15,13 +15,17 @@ require (
 	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mfridman/interpolate v0.0.2 // indirect
 	github.com/mssola/user_agent v0.6.0 // indirect
+	github.com/sethvargo/go-retry v0.3.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
-	golang.org/x/net v0.49.0 // indirect
+	go.uber.org/multierr v1.11.0 // indirect
+	golang.org/x/net v0.50.0 // indirect
 )
 
 require (
+	github.com/4udiwe/big-bob-pizza/order-service v0.0.0-20251219214901-41e245f172ab
 	github.com/4udiwe/coworking/auth-service v0.0.0-20260220104822-d63dfd98a4e6
 	github.com/Masterminds/squirrel v1.5.4
 	github.com/jackc/pgconn v1.14.3
@@ -33,10 +37,11 @@ require (
 	github.com/labstack/echo/v4 v4.15.0
 	github.com/lann/builder v0.0.0-20180802200727-47ae307949d0 // indirect
 	github.com/lann/ps v0.0.0-20150810152359-62de8c46ede0 // indirect
+	github.com/pressly/goose/v3 v3.27.0
 	github.com/samber/lo v1.52.0
 	github.com/sirupsen/logrus v1.9.3
-	golang.org/x/crypto v0.47.0 // indirect
+	golang.org/x/crypto v0.48.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
-	golang.org/x/sys v0.40.0 // indirect
-	golang.org/x/text v0.33.0 // indirect
+	golang.org/x/sys v0.41.0 // indirect
+	golang.org/x/text v0.34.0 // indirect
 )

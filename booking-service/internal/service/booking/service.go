@@ -21,6 +21,7 @@ type BookingService struct {
 	bookingRepo     BookingRepository
 	placeRepo       PlaceRepository
 	coworkingRepo   CoworkingRepository
+	outboxRepo      OutboxRepo
 	layoutValidator json_schema_validator.Validator
 	txManager       transactor.Transactor
 }
@@ -29,6 +30,7 @@ func New(
 	bookingRepo BookingRepository,
 	placeRepo PlaceRepository,
 	coworkingRepo CoworkingRepository,
+	outboxRepo OutboxRepo,
 	layoutValidator json_schema_validator.Validator,
 	txManager transactor.Transactor,
 ) *BookingService {
@@ -36,6 +38,7 @@ func New(
 		bookingRepo:     bookingRepo,
 		placeRepo:       placeRepo,
 		coworkingRepo:   coworkingRepo,
+		outboxRepo:      outboxRepo,
 		layoutValidator: layoutValidator,
 		txManager:       txManager,
 	}
@@ -367,12 +370,39 @@ func (s *BookingService) CreateBooking(ctx context.Context, booking entity.Booki
 			return ErrCoworkingInactive
 		}
 
-		err = s.bookingRepo.Create(ctx, booking)
+		// Create booking
+		bookingID, err := s.bookingRepo.Create(ctx, booking)
 		if err != nil {
 			if errors.Is(err, repository.ErrBookingTimeConflict) {
 				return ErrBookingTimeConflict
 			}
 			logrus.Errorf("Failed to create booking: %v", err)
+			return ErrCannotCreateBooking
+		}
+
+		// Fetch booking, place, cowoking info
+		booking, err := s.bookingRepo.GetByID(ctx, bookingID)
+		if err != nil {
+			return ErrCannotCreateBooking
+		}
+
+		// Create outbox event
+		ev := entity.OutboxEvent{
+			AggregateType: "booking",
+			AggregateID:   booking.ID,
+			EventType:     "created",
+			Payload: map[string]any{
+				"bookingId": booking.ID,
+				"userId":    booking.UserID,
+				"placeId":   booking.Place.ID,
+				"startTime": booking.StartTime,
+				"endTime":   booking.EndTime,
+			},
+			Status:    entity.OutboxStatus{ID: 1, Name: "pending"},
+			CreatedAt: time.Now(),
+		}
+		if err := s.outboxRepo.Create(ctx, ev); err != nil {
+			logrus.Errorf("Failed to create outbox event: %v", err)
 			return ErrCannotCreateBooking
 		}
 
@@ -409,6 +439,23 @@ func (s *BookingService) CancelBooking(ctx context.Context, bookingID uuid.UUID,
 			return ErrCannotCancelBooking
 		}
 
+		// Create outbox event
+		ev := entity.OutboxEvent{
+			AggregateType: "booking",
+			AggregateID:   booking.ID,
+			EventType:     "cancelled",
+			Payload: map[string]any{
+				"bookingId": booking.ID,
+				"reason":    reason,
+			},
+			Status:    entity.OutboxStatus{ID: 1, Name: "pending"},
+			CreatedAt: time.Now(),
+		}
+		if err := s.outboxRepo.Create(ctx, ev); err != nil {
+			logrus.Errorf("Failed to create outbox event: %v", err)
+			return ErrCannotCancelBooking
+		}
+
 		return nil
 	})
 }
@@ -440,6 +487,22 @@ func (s *BookingService) CompleteBooking(ctx context.Context, bookingID uuid.UUI
 		if err != nil {
 			logrus.Errorf("Failed to complete booking: %v", err)
 			return ErrCannotCompleteBooking
+		}
+
+		// Create outbox event
+		ev := entity.OutboxEvent{
+			AggregateType: "booking",
+			AggregateID:   booking.ID,
+			EventType:     "completed",
+			Payload: map[string]any{
+				"bookingId": booking.ID,
+			},
+			Status:    entity.OutboxStatus{ID: 1, Name: "pending"},
+			CreatedAt: time.Now(),
+		}
+		if err := s.outboxRepo.Create(ctx, ev); err != nil {
+			logrus.Errorf("Failed to create outbox event: %v", err)
+			return ErrCannotCancelBooking
 		}
 
 		return nil
