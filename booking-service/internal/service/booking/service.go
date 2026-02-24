@@ -502,7 +502,7 @@ func (s *BookingService) SetCoworkingInactive(ctx context.Context, coworkingID u
 
 		err = s.coworkingRepo.SetActive(ctx, coworkingID, false)
 		if err != nil {
-			return err
+			return ErrCannotUpdateCoworking
 		}
 
 		return nil
