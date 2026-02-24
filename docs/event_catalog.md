@@ -25,11 +25,10 @@
 | booking.events	    | Жизненный цикл бронирований  | booking-service      |
 | notification.events | Уведомления пользователям    | notification-service |
 | scheduler.events	  | Таймеры и отложенные события | scheduler-service    |
-| analytics.events	  | Сырые события для аналитики	 | booking-service      |
 
 
 # TOPIC: booking.events
-## booking.created
+## booking.booking.created
 - Описание: Создано новое бронирование
 - Публикует: booking-service
 - Слушают: notification, analytics, scheduler
@@ -44,7 +43,7 @@
 }
 ```
 
-## booking.cancelled
+## booking.booking.cancelled
 - Описание: Бронирование отменено
 - Публикует: booking-service
 - Слушают: notification, analytics
@@ -56,10 +55,10 @@
 }
 ```
 
-## booking.completed
+## booking.booking.completed
 - Описание: Бронирование завершено по времени
-- Публикует: scheduler-service
-- Слушают: booking-service, analytics
+- Публикует: booking-service
+- Слушают: notification, analytics
 
 ```json
 {
@@ -80,6 +79,18 @@
 }
 ```
 
+## scheduler.booking.expire
+- Описание: Запрос на изменение статуса бронирования на "Завершено"
+- Публикует: scheduler-service
+- Слушают: booking-service
+
+```json
+{
+  "bookingId": "UUID"
+}
+```
+
+
 # TOPIC: notification.events
 ## notification.sent
 - Описание: Уведомление отправлено пользователю
@@ -91,19 +102,5 @@
   "userId": "UUID",
   "channel": "push | email",
   "type": "booking_reminder"
-}
-```
-
-# TOPIC: analytics.events
-## analytics.booking.recorded
-- Описание: Событие бронирования записано в аналитику
-- Публикует: analytics-service
-- Слушают: (нет)
-
-```json
-{
-  "bookingId": "UUID",
-  "coworkingId": "UUID",
-  "hour": 14
 }
 ```
