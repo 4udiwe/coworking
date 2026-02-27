@@ -25,6 +25,7 @@ func TestService_Register(t *testing.T) {
 		tx *mock_tx.MockTransactor
 		a  *m.MockAuth
 		h  *m.MockHasher
+		jwtValidator *m.MockJwtValidator
 	}
 
 	tests := []struct {
@@ -54,6 +55,7 @@ func TestService_Register(t *testing.T) {
 					Return(&auth.Tokens{RefreshToken: "rt"}, nil)
 
 				m.a.EXPECT().HashToken("rt").Return("hashRT")
+
 
 				m.ar.EXPECT().
 					CreateSession(gomock.Any(), gomock.Any(), "hashRT").
@@ -500,7 +502,7 @@ func TestService_Refresh(t *testing.T) {
 			},
 			expectedErr: service.ErrInvalidRefreshToken,
 		},
-	}	
+	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -541,7 +543,6 @@ func TestService_Refresh(t *testing.T) {
 		})
 	}
 }
-
 
 func TestService_Logout(t *testing.T) {
 	type mocks struct {

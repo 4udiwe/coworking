@@ -6,6 +6,6 @@ func (app *App) AuthMiddleware() *middleware.AuthMiddleware {
 	if app.authMW != nil {
 		return app.authMW
 	}
-	app.authMW = middleware.New(app.Auth())
+	app.authMW = middleware.New(app.JwtValidator())
 	return app.authMW
 }

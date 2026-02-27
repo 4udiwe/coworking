@@ -35,10 +35,9 @@ type (
 		ConnectTimeout time.Duration `env-required:"true" yaml:"connect_timeout" env:"POSTGRES_CONNECT_TIMEOUT"`
 	}
 	Auth struct {
-		AccessTokenSecret  string        `env-required:"true" yaml:"access_token_secret" env:"AUTH_ACCESS_TOKEN_SECRET"`
-		RefreshTokenSecret string        `env-required:"true" yaml:"refresh_token_secret" env:"AUTH_REFRESH_TOKEN_SECRET"`
-		AccessTokenTTL     time.Duration `env-required:"true" yaml:"access_token_ttl" env:"AUTH_ACCESS_TOKEN_TTL"`
-		RefreshTokenTTL    time.Duration `env-required:"true" yaml:"refresh_token_ttl" env:"AUTH_REFRESH_TOKEN_TTL"`
+		PrivateKey      string        `env-required:"true" yaml:"private_key" env:"AUTH_PRIVATE_KEY"`
+		AccessTokenTTL  time.Duration `env-required:"true" yaml:"access_token_ttl" env:"AUTH_ACCESS_TOKEN_TTL"`
+		RefreshTokenTTL time.Duration `env-required:"true" yaml:"refresh_token_ttl" env:"AUTH_REFRESH_TOKEN_TTL"`
 	}
 	Hasher struct {
 		Cost int `env-required:"true" yaml:"cost" env:"HASHER_COST"`

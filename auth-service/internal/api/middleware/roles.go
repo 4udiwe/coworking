@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"slices"
 
 	"github.com/4udiwe/coworking/auth-service/internal/entity"
 	"github.com/labstack/echo/v4"
@@ -17,11 +18,9 @@ func RoleMiddleware(allowedRoles ...entity.RoleCode) echo.MiddlewareFunc {
 
 			hasAccess := false
 			for _, allowedRole := range allowedRoles {
-				for _, role := range claims.Roles {
-					if entity.RoleCode(role) == allowedRole {
-						hasAccess = true
-						break
-					}
+				if slices.Contains(claims.Roles, string(allowedRole)) {
+					hasAccess = true
+					break
 				}
 			}
 

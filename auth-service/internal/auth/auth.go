@@ -1,8 +1,11 @@
 package auth
 
 import (
+	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/x509"
 	"encoding/hex"
+	"encoding/pem"
 	"errors"
 	"time"
 
@@ -13,29 +16,39 @@ import (
 )
 
 var (
-	ErrInvalidAccessToken  = errors.New("invalid access token")
 	ErrInvalidRefreshToken = errors.New("invalid refresh token")
 	ErrExpiredToken        = errors.New("token has expired")
 )
 
 type Auth struct {
-	accessTokenSecret  []byte
-	refreshTokenSecret []byte
-	accessTokenTTL     time.Duration
-	refreshTokenTTL    time.Duration
+	privateKey *rsa.PrivateKey
+	PublicKey  *rsa.PublicKey
+
+	issuer string
+
+	accessTokenTTL  time.Duration
+	refreshTokenTTL time.Duration
 }
 
+/*
+New создаёт issuer токенов.
+
+privateKey — приватный RSA ключ
+issuer     — идентификатор сервиса (например "auth-service")
+*/
 func New(
-	accessTokenSecret string,
-	refreshTokenSecret string,
+	privateKey *rsa.PrivateKey,
+	issuer string,
 	accessTokenTTL time.Duration,
 	refreshTokenTTL time.Duration,
 ) *Auth {
+
 	return &Auth{
-		accessTokenSecret:  []byte(accessTokenSecret),
-		refreshTokenSecret: []byte(refreshTokenSecret),
-		accessTokenTTL:     accessTokenTTL,
-		refreshTokenTTL:    refreshTokenTTL,
+		privateKey:      privateKey,
+		PublicKey:       &privateKey.PublicKey,
+		issuer:          issuer,
+		accessTokenTTL:  accessTokenTTL,
+		refreshTokenTTL: refreshTokenTTL,
 	}
 }
 
@@ -46,7 +59,8 @@ func (a *Auth) GenerateTokens(
 
 	now := time.Now()
 
-	// ===== ACCESS TOKEN =====
+	// ================= ACCESS TOKEN =================
+
 	accessClaims := AccessClaims{
 		UserID: user.ID,
 		Email:  user.Email,
@@ -54,32 +68,38 @@ func (a *Auth) GenerateTokens(
 			return string(r.Code)
 		}),
 		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    a.issuer,
+			Subject:   user.ID.String(),
 			ExpiresAt: jwt.NewNumericDate(now.Add(a.accessTokenTTL)),
 			IssuedAt:  jwt.NewNumericDate(now),
+			ID:        uuid.NewString(), // jti
 		},
 	}
 
-	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
+	accessToken := jwt.NewWithClaims(jwt.SigningMethodRS256, accessClaims)
 
-	accessTokenString, err := accessToken.SignedString(a.accessTokenSecret)
+	accessTokenString, err := accessToken.SignedString(a.privateKey)
 	if err != nil {
 		return nil, err
 	}
 
-	// ===== REFRESH TOKEN =====
+	// ================= REFRESH TOKEN =================
+
 	refreshClaims := RefreshClaims{
 		UserID:    user.ID,
 		SessionID: sessionID,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ID:        sessionID.String(), // jti
+			Issuer:    a.issuer,
+			Subject:   user.ID.String(),
 			ExpiresAt: jwt.NewNumericDate(now.Add(a.refreshTokenTTL)),
 			IssuedAt:  jwt.NewNumericDate(now),
+			ID:        sessionID.String(), // jti = session id
 		},
 	}
 
-	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
+	refreshToken := jwt.NewWithClaims(jwt.SigningMethodRS256, refreshClaims)
 
-	refreshTokenString, err := refreshToken.SignedString(a.refreshTokenSecret)
+	refreshTokenString, err := refreshToken.SignedString(a.privateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -91,31 +111,6 @@ func (a *Auth) GenerateTokens(
 	}, nil
 }
 
-func (a *Auth) ValidateAccessToken(tokenString string) (*AccessClaims, error) {
-
-	token, err := jwt.ParseWithClaims(
-		tokenString,
-		&AccessClaims{},
-		func(token *jwt.Token) (interface{}, error) {
-			return a.accessTokenSecret, nil
-		},
-	)
-
-	if err != nil {
-		if errors.Is(err, jwt.ErrTokenExpired) {
-			return nil, ErrExpiredToken
-		}
-		return nil, ErrInvalidAccessToken
-	}
-
-	claims, ok := token.Claims.(*AccessClaims)
-	if !ok || !token.Valid {
-		return nil, ErrInvalidAccessToken
-	}
-
-	return claims, nil
-}
-
 func (a *Auth) ParseRefreshToken(
 	tokenString string,
 ) (*RefreshClaims, error) {
@@ -124,7 +119,13 @@ func (a *Auth) ParseRefreshToken(
 		tokenString,
 		&RefreshClaims{},
 		func(token *jwt.Token) (interface{}, error) {
-			return a.refreshTokenSecret, nil
+
+			// Строгая проверка алгоритма
+			if token.Method.Alg() != jwt.SigningMethodRS256.Alg() {
+				return nil, ErrInvalidRefreshToken
+			}
+
+			return a.PublicKey, nil
 		},
 	)
 
@@ -140,10 +141,24 @@ func (a *Auth) ParseRefreshToken(
 		return nil, ErrInvalidRefreshToken
 	}
 
+	// Проверка issuer
+	if claims.Issuer != a.issuer {
+		return nil, ErrInvalidRefreshToken
+	}
+
 	return claims, nil
 }
 
+func LoadPrivateKeyFromPEM(pemData string) (*rsa.PrivateKey, error) {
+	block, _ := pem.Decode([]byte(pemData))
+	if block == nil {
+		return nil, errors.New("invalid PEM block")
+	}
+
+	return x509.ParsePKCS1PrivateKey(block.Bytes)
+}
+
 func (a *Auth) HashToken(tokenString string) string {
-	sum := sha256.Sum256([]byte(tokenString))
-	return hex.EncodeToString(sum[:])
+	hash := sha256.Sum256([]byte(tokenString))
+	return hex.EncodeToString(hash[:])
 }
