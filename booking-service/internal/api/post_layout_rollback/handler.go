@@ -1,4 +1,4 @@
-package put_coworking_inactive
+package post_layout_rollback
 
 import (
 	"errors"
@@ -24,7 +24,7 @@ type Request struct {
 }
 
 func (h *handler) Handle(ctx echo.Context, in Request) error {
-	err := h.s.SetCoworkingInactive(ctx.Request().Context(), in.CoworkingID)
+	err := h.s.RollbackLatestLayoutVersion(ctx.Request().Context(), in.CoworkingID)
 
 	if err != nil {
 		if errors.Is(err, booking_service.ErrCoworkingNotFound) {
@@ -32,5 +32,7 @@ func (h *handler) Handle(ctx echo.Context, in Request) error {
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+
 	return ctx.NoContent(http.StatusAccepted)
 }
+

@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/4udiwe/cowoking/booking-service/internal/api"
+	"github.com/4udiwe/cowoking/booking-service/internal/api/dto"
 	"github.com/4udiwe/cowoking/booking-service/internal/entity"
 	booking_service "github.com/4udiwe/cowoking/booking-service/internal/service/booking"
 	"github.com/4udiwe/coworking/auth-service/pgk/decorator"
@@ -19,10 +20,7 @@ func New(bookingService BookingService) api.Handler {
 	return decorator.NewBindAndValidateDerocator(&handler{s: bookingService})
 }
 
-type Request struct {
-	Name    string `json:"name"`
-	Address string `json:"address"`
-}
+type Request = dto.CreateCoworkingRequest
 
 func (h *handler) Handle(ctx echo.Context, in Request) error {
 	coworking := entity.Coworking{

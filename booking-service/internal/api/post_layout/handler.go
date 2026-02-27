@@ -1,15 +1,14 @@
 package post_layout
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 
 	"github.com/4udiwe/cowoking/booking-service/internal/api"
+	"github.com/4udiwe/cowoking/booking-service/internal/api/dto"
 	"github.com/4udiwe/cowoking/booking-service/internal/entity"
 	booking_service "github.com/4udiwe/cowoking/booking-service/internal/service/booking"
 	"github.com/4udiwe/coworking/auth-service/pgk/decorator"
-	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
@@ -21,11 +20,7 @@ func New(bookingService BookingService) api.Handler {
 	return decorator.NewBindAndValidateDerocator(&handler{s: bookingService})
 }
 
-type Request struct {
-	CoworkingID uuid.UUID       `json:"coworkingId"`
-	Version     int             `json:"version"`
-	Layout      json.RawMessage `json:"layout"`
-}
+type Request = dto.CreateLayoutRequest
 
 func (h *handler) Handle(ctx echo.Context, in Request) error {
 	layout := entity.CoworkingLayout{

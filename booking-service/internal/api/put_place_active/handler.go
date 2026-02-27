@@ -1,13 +1,13 @@
-package put_coworking_inactive
+package put_place_active
 
 import (
 	"errors"
 	"net/http"
 
 	"github.com/4udiwe/cowoking/booking-service/internal/api"
+	"github.com/4udiwe/cowoking/booking-service/internal/api/dto"
 	booking_service "github.com/4udiwe/cowoking/booking-service/internal/service/booking"
 	"github.com/4udiwe/coworking/auth-service/pgk/decorator"
-	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
@@ -19,16 +19,17 @@ func New(bookingService BookingService) api.Handler {
 	return decorator.NewBindAndValidateDerocator(&handler{s: bookingService})
 }
 
-type Request struct {
-	CoworkingID uuid.UUID `json:"coworkingId"`
-}
+type Request = dto.SetPlaceActiveRequest
 
 func (h *handler) Handle(ctx echo.Context, in Request) error {
-	err := h.s.SetCoworkingInactive(ctx.Request().Context(), in.CoworkingID)
+	err := h.s.SetPlaceActive(ctx.Request().Context(), in.PlaceID, in.Active)
 
 	if err != nil {
-		if errors.Is(err, booking_service.ErrCoworkingNotFound) {
-			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		if errors.Is(err, booking_service.ErrPlaceHasActiveBookings) {
+			return echo.NewHTTPError(http.StatusConflict, err.Error())
+		}
+		if errors.Is(err, booking_service.ErrPlaceNotFound) {
+			return echo.NewHTTPError(http.StatusNotFound, err.Error())
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

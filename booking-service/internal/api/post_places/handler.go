@@ -5,10 +5,10 @@ import (
 	"net/http"
 
 	"github.com/4udiwe/cowoking/booking-service/internal/api"
+	"github.com/4udiwe/cowoking/booking-service/internal/api/dto"
 	"github.com/4udiwe/cowoking/booking-service/internal/entity"
 	booking_service "github.com/4udiwe/cowoking/booking-service/internal/service/booking"
 	"github.com/4udiwe/coworking/auth-service/pgk/decorator"
-	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/samber/lo"
 )
@@ -21,19 +21,15 @@ func New(bookingService BookingService) api.Handler {
 	return decorator.NewBindAndValidateDerocator(&handler{s: bookingService})
 }
 
-type Request struct {
-	CoworkingID uuid.UUID      `json:"coworkingId"`
-	Places      []RequestPlace `json:"places"`
-}
-
-type RequestPlace struct {
-	Label     string
-	PlaceType string
-}
+type Request = dto.CreatePlacesRequest
 
 func (h *handler) Handle(ctx echo.Context, in Request) error {
-	places := lo.Map(in.Places, func(p RequestPlace, _ int) entity.Place {
-		return entity.Place{Coworking: entity.Coworking{ID: in.CoworkingID}, Label: p.Label, PlaceType: p.PlaceType}
+	places := lo.Map(in.Places, func(p dto.CreatePlaceDTO, _ int) entity.Place {
+		return entity.Place{
+			Coworking: entity.Coworking{ID: in.CoworkingID},
+			Label:     p.Label,
+			PlaceType: p.PlaceType,
+		}
 	})
 	err := h.s.CreatePlacesBatch(ctx.Request().Context(), places)
 

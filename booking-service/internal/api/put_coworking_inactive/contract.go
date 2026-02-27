@@ -7,5 +7,5 @@ import (
 )
 
 type BookingService interface {
-	SetCoworkingInActive(ctx context.Context, coworkingID uuid.UUID) error
+	SetCoworkingInactive(ctx context.Context, coworkingID uuid.UUID) error
 }

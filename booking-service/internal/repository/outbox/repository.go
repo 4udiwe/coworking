@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/4udiwe/avito-pvz/pkg/postgres"
 	"github.com/4udiwe/big-bob-pizza/order-service/pkg/outbox"
-	"github.com/4udiwe/big-bob-pizza/order-service/pkg/postgres"
 	"github.com/4udiwe/cowoking/booking-service/internal/entity"
 	"github.com/Masterminds/squirrel"
 	"github.com/google/uuid"

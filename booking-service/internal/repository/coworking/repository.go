@@ -14,10 +14,10 @@ import (
 )
 
 type CoworkingRepository struct {
-	postgres.Postgres
+	*postgres.Postgres
 }
 
-func New(pg postgres.Postgres) *CoworkingRepository {
+func New(pg *postgres.Postgres) *CoworkingRepository {
 	return &CoworkingRepository{
 		Postgres: pg,
 	}

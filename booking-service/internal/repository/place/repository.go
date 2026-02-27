@@ -16,10 +16,10 @@ import (
 )
 
 type PlaceRepository struct {
-	postgres.Postgres
+	*postgres.Postgres
 }
 
-func New(pg postgres.Postgres) *PlaceRepository {
+func New(pg *postgres.Postgres) *PlaceRepository {
 	return &PlaceRepository{
 		Postgres: pg,
 	}

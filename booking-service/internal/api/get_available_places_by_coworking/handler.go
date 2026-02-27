@@ -1,4 +1,4 @@
-package get_layout_versions
+package get_available_places_by_coworking
 
 import (
 	"errors"
@@ -8,7 +8,7 @@ import (
 	"github.com/4udiwe/cowoking/booking-service/internal/api/dto"
 	"github.com/4udiwe/cowoking/booking-service/internal/entity"
 	booking_service "github.com/4udiwe/cowoking/booking-service/internal/service/booking"
-	"github.com/4udiwe/coworking/auth-service/pgk/decorator"
+	"github.com/4udiwe/coworking/auth-service/pkg/decorator"
 	"github.com/labstack/echo/v4"
 	"github.com/samber/lo"
 )
@@ -21,26 +21,31 @@ func New(bookingService BookingService) api.Handler {
 	return decorator.NewBindAndValidateDerocator(&handler{s: bookingService})
 }
 
-type Request = dto.ListLayoutVersionsRequest
+type Request = dto.GetAvailablePlacesByCoworkingRequest
 
 type Response struct {
-	Versions []dto.LayoutVersion `json:"layoutVersions"`
+	Places []dto.Place `json:"places"`
 }
 
 func (h *handler) Handle(ctx echo.Context, in Request) error {
-	versions, err := h.s.ListLayoutVersions(ctx.Request().Context(), in.CoworkingID)
-
+	places, err := h.s.GetAvailablePlacesByCoworking(ctx.Request().Context(), in.CoworkingID, in.StartTime, in.EndTime)
 	if err != nil {
 		if errors.Is(err, booking_service.ErrCoworkingNotFound) {
-			echo.NewHTTPError(http.StatusBadRequest, err.Error())
+			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+
 	return ctx.JSON(http.StatusOK, Response{
-		Versions: lo.Map(versions, func(v entity.CoworkingLayoutVersionTime, _ int) dto.LayoutVersion {
-			return dto.LayoutVersion{
-				Version:   v.Version,
-				CreatedAt: v.CreatedAt,
+		Places: lo.Map(places, func(p entity.Place, _ int) dto.Place {
+			return dto.Place{
+				ID:          p.ID,
+				CoworkingID: p.Coworking.ID,
+				Label:       p.Label,
+				PlaceType:   p.PlaceType,
+				IsActive:    p.IsActive,
+				CreatedAt:   p.CreatedAt,
+				UpdatedAt:   p.UpdatedAt,
 			}
 		}),
 	})

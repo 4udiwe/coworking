@@ -8,8 +8,8 @@ import (
 
 	"github.com/4udiwe/avito-pvz/pkg/transactor"
 	"github.com/4udiwe/cowoking/booking-service/internal/entity"
+	layout_model "github.com/4udiwe/cowoking/booking-service/internal/layout/model"
 	"github.com/4udiwe/cowoking/booking-service/internal/repository"
-	"github.com/4udiwe/cowoking/booking-service/layout_schema"
 	"github.com/4udiwe/cowoking/booking-service/pkg/json_schema_validator"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -120,7 +120,7 @@ func (s *BookingService) CreateLayoutVersion(ctx context.Context, layout entity.
 		return ErrInvalidLayoutSchema
 	}
 
-	var parsed layout_schema.LayoutSchema
+	var parsed layout_model.Layout
 
 	if err := json.Unmarshal(layout.Layout, &parsed); err != nil {
 		logrus.Errorf("Failed to unmarshal and validate layout JSON: %v", err)

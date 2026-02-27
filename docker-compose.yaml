@@ -14,7 +14,28 @@ services:
       test:
         [
           "CMD-SHELL",
-          "pg_isready -U ${AUTH_DB_USER:-authuser} -d ${AUTH_DB_NAME:-authdb}",
+          "pkg_isready -U ${AUTH_DB_USER:-authuser} -d ${AUTH_DB_NAME:-authdb}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app-network
+
+  postgres_booking:
+    image: postgres:15
+    container_name: postgres_booking
+    environment:
+      POSTGRES_USER: ${BOOKING_DB_USER:-bookinguser}
+      POSTGRES_PASSWORD: ${BOOKING_DB_PASSWORD:-bookingpass}
+      POSTGRES_DB: ${BOOKING_DB_NAME:-bookingdb}
+    volumes:
+      - postgres_booking_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pkg_isready -U ${BOOKING_DB_USER:-bookinguser} -d ${BOOKING_DB_NAME:-bookingdb}",
         ]
       interval: 5s
       timeout: 5s
@@ -60,9 +81,47 @@ services:
       - app=auth
       - env=prod
 
+  booking-service:
+    build:
+      context: ./booking-service
+      dockerfile: Dockerfile
+    container_name: booking_service
+    depends_on:
+      postgres_booking:
+        condition: service_healthy
+    environment:
+      # Postgres connection
+      POSTGRES_URL: "postgres://${BOOKING_DB_USER:-bookinguser}:${BOOKING_DB_PASSWORD:-bookingpass}@postgres_auth:5432/${BOOKING_DB_NAME:-bookingdb}?sslmode=disable"
+      # Redis connection
+      # Config path
+      CONFIG_PATH: "/config/config.yaml"
+      # Server port
+      SERVER_PORT: "${BOOKING_SERVER_PORT:-8081}"
+      # JWT
+      AUTH_PUBLIC_KEY: "${AUTH_PUBLIC_KEY}"
+    volumes:
+      - ./booking-service/config:/config:ro
+    networks:
+      - app-network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://localhost:${BOOKING_SERVER_PORT:-8081}/health || exit 1",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    ports:
+      - "${BOOKING_SERVER_PORT:-8081}:8080"
+    labels:
+      - app=booking
+      - env=prod
+
 networks:
   app-network:
     driver: bridge
 
 volumes:
   postgres_auth_data:
+  postgres_booking_data:
