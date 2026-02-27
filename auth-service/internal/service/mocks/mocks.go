@@ -15,6 +15,7 @@ import (
 
 	auth "github.com/4udiwe/coworking/auth-service/internal/auth"
 	entity "github.com/4udiwe/coworking/auth-service/internal/entity"
+	jwt_validator "github.com/4udiwe/coworking/auth-service/pgk/jwt_validator"
 	uuid "github.com/google/uuid"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -266,21 +267,6 @@ func (mr *MockAuthMockRecorder) ParseRefreshToken(tokenString any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ParseRefreshToken", reflect.TypeOf((*MockAuth)(nil).ParseRefreshToken), tokenString)
 }
 
-// ValidateAccessToken mocks base method.
-func (m *MockAuth) ValidateAccessToken(tokenString string) (*auth.AccessClaims, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ValidateAccessToken", tokenString)
-	ret0, _ := ret[0].(*auth.AccessClaims)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ValidateAccessToken indicates an expected call of ValidateAccessToken.
-func (mr *MockAuthMockRecorder) ValidateAccessToken(tokenString any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateAccessToken", reflect.TypeOf((*MockAuth)(nil).ValidateAccessToken), tokenString)
-}
-
 // MockHasher is a mock of Hasher interface.
 type MockHasher struct {
 	ctrl     *gomock.Controller
@@ -332,4 +318,43 @@ func (m *MockHasher) HashPassword(password string) (string, error) {
 func (mr *MockHasherMockRecorder) HashPassword(password any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HashPassword", reflect.TypeOf((*MockHasher)(nil).HashPassword), password)
+}
+
+// MockJwtValidator is a mock of JwtValidator interface.
+type MockJwtValidator struct {
+	ctrl     *gomock.Controller
+	recorder *MockJwtValidatorMockRecorder
+	isgomock struct{}
+}
+
+// MockJwtValidatorMockRecorder is the mock recorder for MockJwtValidator.
+type MockJwtValidatorMockRecorder struct {
+	mock *MockJwtValidator
+}
+
+// NewMockJwtValidator creates a new mock instance.
+func NewMockJwtValidator(ctrl *gomock.Controller) *MockJwtValidator {
+	mock := &MockJwtValidator{ctrl: ctrl}
+	mock.recorder = &MockJwtValidatorMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockJwtValidator) EXPECT() *MockJwtValidatorMockRecorder {
+	return m.recorder
+}
+
+// Validate mocks base method.
+func (m *MockJwtValidator) Validate(tokenString string) (*jwt_validator.AccessClaims, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Validate", tokenString)
+	ret0, _ := ret[0].(*jwt_validator.AccessClaims)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Validate indicates an expected call of Validate.
+func (mr *MockJwtValidatorMockRecorder) Validate(tokenString any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockJwtValidator)(nil).Validate), tokenString)
 }

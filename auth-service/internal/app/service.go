@@ -1,23 +1,9 @@
 package app
 
 import (
-	"github.com/4udiwe/coworking/auth-service/internal/auth"
 	"github.com/4udiwe/coworking/auth-service/internal/hasher"
 	user_service "github.com/4udiwe/coworking/auth-service/internal/service"
 )
-
-func (app *App) Auth() *auth.Auth {
-	if app.auth != nil {
-		return app.auth
-	}
-	app.auth = auth.New(
-		app.cfg.Auth.AccessTokenSecret,
-		app.cfg.Auth.RefreshTokenSecret,
-		app.cfg.Auth.AccessTokenTTL,
-		app.cfg.Auth.RefreshTokenTTL,
-	)
-	return app.auth
-}
 
 func (app *App) Hasher() *hasher.BcryptHasher {
 	if app.hasher != nil {

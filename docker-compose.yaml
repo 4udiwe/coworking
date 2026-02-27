@@ -39,8 +39,8 @@ services:
       # Server port
       SERVER_PORT: "${AUTH_SERVER_PORT:-8080}"
       # JWT secrets
-      AUTH_ACCESS_TOKEN_SECRET: "${AUTH_ACCESS_TOKEN_SECRET:-default_access_secret}"
-      AUTH_REFRESH_TOKEN_SECRET: "${AUTH_REFRESH_TOKEN_SECRET:-default_refresh_secret}"
+      AUTH_PRIVATE_KEY: "${AUTH_PRIVATE_KEY}"
+      AUTH_PUBLIC_KEY: "${AUTH_PUBLIC_KEY}"
     volumes:
       - ./auth-service/config:/config:ro
     networks:

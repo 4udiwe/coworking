@@ -27,7 +27,6 @@ type AuthRepository interface {
 
 type Auth interface {
 	GenerateTokens(user entity.User, sessionID uuid.UUID) (*auth.Tokens, error)
-	ValidateAccessToken(tokenString string) (*auth.AccessClaims, error)
 	ParseRefreshToken(tokenString string) (*auth.RefreshClaims, error)
 	HashToken(tokenString string) string
 }

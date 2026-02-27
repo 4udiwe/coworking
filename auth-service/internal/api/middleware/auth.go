@@ -4,23 +4,19 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/4udiwe/coworking/auth-service/internal/auth"
+	"github.com/4udiwe/coworking/auth-service/pgk/jwt_validator"
 	"github.com/labstack/echo/v4"
 )
 
 const USER_CLAIMS_KEY = "userClaims"
 
-type AuthRepo interface {
-	ValidateAccessToken(tokenString string) (*auth.AccessClaims, error)
-}
-
 type AuthMiddleware struct {
-	auth AuthRepo
+	jwtValidator *jwt_validator.Validator
 }
 
-func New(auth AuthRepo) *AuthMiddleware {
+func New(jwtValidator *jwt_validator.Validator) *AuthMiddleware {
 	return &AuthMiddleware{
-		auth: auth,
+		jwtValidator: jwtValidator,
 	}
 }
 
@@ -37,7 +33,7 @@ func (m *AuthMiddleware) Middleware(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 
 		token := parts[1]
-		claims, err := m.auth.ValidateAccessToken(token)
+		claims, err := m.jwtValidator.Validate(token)
 		if err != nil {
 			return c.JSON(http.StatusUnauthorized, err.Error())
 		}
@@ -48,8 +44,8 @@ func (m *AuthMiddleware) Middleware(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-func GetUserFromContext(c echo.Context) (*auth.AccessClaims, error) {
-	claims, ok := c.Get(USER_CLAIMS_KEY).(*auth.AccessClaims)
+func GetUserFromContext(c echo.Context) (*jwt_validator.AccessClaims, error) {
+	claims, ok := c.Get(USER_CLAIMS_KEY).(*jwt_validator.AccessClaims)
 	if !ok {
 		return nil, echo.NewHTTPError(http.StatusUnauthorized, "User not found in context")
 	}

@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"crypto/rsa"
 	"os"
 
 	"github.com/4udiwe/avito-pvz/pkg/httpserver"
@@ -15,6 +16,7 @@ import (
 	auth_repository "github.com/4udiwe/coworking/auth-service/internal/repository/auth"
 	user_repository "github.com/4udiwe/coworking/auth-service/internal/repository/user"
 	user_service "github.com/4udiwe/coworking/auth-service/internal/service"
+	"github.com/4udiwe/coworking/auth-service/pgk/jwt_validator"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
 )
@@ -48,7 +50,9 @@ type App struct {
 	getActiveSessionsHandler api.Handler
 
 	// Auth
-	auth *auth.Auth
+	auth         *auth.Auth
+	privateKey   *rsa.PrivateKey
+	jwtValidator *jwt_validator.Validator
 
 	// Hasher
 	hasher *hasher.BcryptHasher
