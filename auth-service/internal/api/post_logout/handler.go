@@ -6,7 +6,7 @@ import (
 
 	api "github.com/4udiwe/coworking/auth-service/internal/api"
 	user_service "github.com/4udiwe/coworking/auth-service/internal/service"
-	"github.com/4udiwe/coworking/auth-service/pgk/decorator"
+	"github.com/4udiwe/coworking/auth-service/pkg/decorator"
 	"github.com/labstack/echo/v4"
 )
 

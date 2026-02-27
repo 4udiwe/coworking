@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/4udiwe/coworking/auth-service/pgk/jwt_validator"
+	"github.com/4udiwe/coworking/auth-service/pkg/jwt_validator"
 	"github.com/labstack/echo/v4"
 )
 

@@ -16,7 +16,7 @@ import (
 	auth_repository "github.com/4udiwe/coworking/auth-service/internal/repository/auth"
 	user_repository "github.com/4udiwe/coworking/auth-service/internal/repository/user"
 	user_service "github.com/4udiwe/coworking/auth-service/internal/service"
-	"github.com/4udiwe/coworking/auth-service/pgk/jwt_validator"
+	"github.com/4udiwe/coworking/auth-service/pkg/jwt_validator"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
 )

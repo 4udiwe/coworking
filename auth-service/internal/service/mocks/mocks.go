@@ -15,7 +15,7 @@ import (
 
 	auth "github.com/4udiwe/coworking/auth-service/internal/auth"
 	entity "github.com/4udiwe/coworking/auth-service/internal/entity"
-	jwt_validator "github.com/4udiwe/coworking/auth-service/pgk/jwt_validator"
+	jwt_validator "github.com/4udiwe/coworking/auth-service/pkg/jwt_validator"
 	uuid "github.com/google/uuid"
 	gomock "go.uber.org/mock/gomock"
 )

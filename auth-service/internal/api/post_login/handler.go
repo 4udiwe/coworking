@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	api "github.com/4udiwe/coworking/auth-service/internal/api"
-	"github.com/4udiwe/coworking/auth-service/pgk/decorator"
 	user_service "github.com/4udiwe/coworking/auth-service/internal/service"
+	"github.com/4udiwe/coworking/auth-service/pkg/decorator"
 	"github.com/labstack/echo/v4"
 )
 
@@ -19,8 +19,8 @@ func New(userService UserService) api.Handler {
 }
 
 type Request struct {
-	Email     string `json:"email" validate:"required,email"`
-	Password  string `json:"password" validate:"required,min=8,max=64"`
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required,min=8,max=64"`
 }
 
 func (h *handler) Handle(ctx echo.Context, in Request) error {
