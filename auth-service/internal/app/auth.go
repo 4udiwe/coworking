@@ -12,7 +12,7 @@ func (app *App) PrivateKey() *rsa.PrivateKey {
 	if app.privateKey != nil {
 		return app.privateKey
 	}
-	privateKey, err := auth.LoadPrivateKeyFromPEM(app.cfg.Auth.PrivateKey)
+	privateKey, err := auth.LoadPrivateKeyFromPEM(app.cfg.Auth.PrivateKeyPath)
 	if err != nil {
 		logrus.WithError(err).Fatal("Failed to load private key")
 	}

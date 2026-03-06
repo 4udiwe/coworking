@@ -35,7 +35,7 @@ type (
 		ConnectTimeout time.Duration `env-required:"true" yaml:"connect_timeout" env:"POSTGRES_CONNECT_TIMEOUT"`
 	}
 	Auth struct {
-		PrivateKey      string        `env-required:"true" yaml:"private_key" env:"AUTH_PRIVATE_KEY"`
+		PrivateKeyPath  string        `env-required:"true" yaml:"private_key_path" env:"AUTH_PRIVATE_KEY_PATH"`
 		AccessTokenTTL  time.Duration `env-required:"true" yaml:"access_token_ttl" env:"AUTH_ACCESS_TOKEN_TTL"`
 		RefreshTokenTTL time.Duration `env-required:"true" yaml:"refresh_token_ttl" env:"AUTH_REFRESH_TOKEN_TTL"`
 	}

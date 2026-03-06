@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"errors"
+	"os"
 	"time"
 
 	"github.com/4udiwe/coworking/auth-service/internal/entity"
@@ -149,8 +150,13 @@ func (a *Auth) ParseRefreshToken(
 	return claims, nil
 }
 
-func LoadPrivateKeyFromPEM(pemData string) (*rsa.PrivateKey, error) {
-	block, _ := pem.Decode([]byte(pemData))
+func LoadPrivateKeyFromPEM(path string) (*rsa.PrivateKey, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	block, _ := pem.Decode(data)
 	if block == nil {
 		return nil, errors.New("invalid PEM block")
 	}

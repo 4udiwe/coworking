@@ -37,7 +37,7 @@ type (
 	}
 
 	Auth struct {
-		PublicKey string `env-required:"true" yaml:"public_key" env:"AUTH_PUBLIC_KEY"`
+		PublicKeyPath string `env-required:"true" yaml:"public_key_path" env:"AUTH_PUBLIC_KEY_PATH"`
 	}
 
 	Kafka struct {

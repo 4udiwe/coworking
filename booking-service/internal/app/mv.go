@@ -18,7 +18,7 @@ func (app *App) JwtValidator() *jwt_validator.Validator {
 	if app.jwtValidator != nil {
 		return app.jwtValidator
 	}
-	publicKey, err := jwt_validator.LoadPublicKey(app.cfg.Auth.PublicKey)
+	publicKey, err := jwt_validator.LoadPublicKey(app.cfg.Auth.PublicKeyPath)
 	if err != nil {
 		logrus.WithError(err).Fatal("Failed to load public key")
 	}
