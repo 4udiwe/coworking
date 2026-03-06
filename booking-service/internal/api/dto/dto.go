@@ -61,90 +61,89 @@ type ErrorResponse struct {
 // Request DTOs
 
 type CreateCoworkingRequest struct {
-	Name    string `json:"name"`
-	Address string `json:"address"`
+	Name    string `json:"name" validate:"required,min=2,max=200"`
+	Address string `json:"address" validate:"required,min=5,max=500"`
 }
 
 type UpdateCoworkingRequest struct {
-	ID       uuid.UUID `json:"id"`
-	Name     string    `json:"name"`
-	Address  string    `json:"address"`
+	ID       uuid.UUID `json:"id" validate:"required"`
+	Name     string    `json:"name" validate:"required,min=2,max=200"`
+	Address  string    `json:"address" validate:"required,min=5,max=500"`
 	IsActive bool      `json:"isActive"`
 }
 
 type GetCoworkingByIDRequest struct {
-	CoworkingID uuid.UUID `json:"coworkingId"`
+	CoworkingID uuid.UUID `param:"coworkingId" validate:"required"`
 }
 
 type ListPlacesByCoworkingRequest struct {
-	CoworkingID uuid.UUID `json:"coworkingId"`
+	CoworkingID uuid.UUID `param:"coworkingId" validate:"required"`
 }
 
 type GetAvailablePlacesByCoworkingRequest struct {
-	CoworkingID uuid.UUID `param:"coworkingId"`
-	StartTime   time.Time `query:"startTime"`
-	EndTime     time.Time `query:"endTime"`
+	CoworkingID uuid.UUID  `param:"coworkingId" validate:"required"`
+	StartTime   *time.Time `query:"startTime" validate:"required"`
+	EndTime     *time.Time `query:"endTime" validate:"required"`
 }
 
 type CreatePlacesRequest struct {
-	CoworkingID uuid.UUID        `json:"coworkingId"`
-	Places      []CreatePlaceDTO `json:"places"`
+	CoworkingID uuid.UUID        `json:"coworkingId" validate:"required"`
+	Places      []CreatePlaceDTO `json:"places" validate:"required,min=1,dive"`
 }
 
 type CreatePlaceDTO struct {
-	Label     string `json:"label"`
-	PlaceType string `json:"placeType"`
+	Label     string `json:"label" validate:"required,min=1,max=50"`
+	PlaceType string `json:"placeType" validate:"required,oneof=open_desk meeting_room private_office"`
 }
 
 type SetPlaceActiveRequest struct {
-	PlaceID uuid.UUID `json:"placeId"`
+	PlaceID uuid.UUID `json:"placeId" validate:"required"`
 	Active  bool      `json:"active"`
 }
 
 type CreateBookingRequest struct {
-	UserID      uuid.UUID `json:"userId"`
-	PlaceID     uuid.UUID `json:"placeId"`
-	CoworkingID uuid.UUID `json:"coworkingId"`
-	StartTime   time.Time `json:"startTime"`
-	EndTime     time.Time `json:"endTime"`
+	UserID      uuid.UUID `json:"userId" validate:"required"`
+	PlaceID     uuid.UUID `json:"placeId" validate:"required"`
+	StartTime   time.Time `json:"startTime" validate:"required"`
+	EndTime     time.Time `json:"endTime" validate:"required,gtfield=StartTime"`
 }
 
 type GetBookingByIDRequest struct {
-	BookingID uuid.UUID `json:"bookingId"`
+	BookingID uuid.UUID `param:"bookingId" validate:"required"`
 }
 
 type ListBookingsByUserRequest struct {
-	UserID uuid.UUID `json:"userId"`
+	UserID uuid.UUID `param:"userId" validate:"required"`
 }
 
 type CancelBookingRequest struct {
-	BookingID uuid.UUID `json:"bookingId"`
-	Reason    string    `json:"reason,omitempty"`
+	BookingID uuid.UUID `param:"bookingId" validate:"required"`
+	Reason    string    `json:"reason,omitempty" validate:"max=500"`
 }
 
 type GetLayoutRequest struct {
-	CoworkingID uuid.UUID `json:"coworkingId"`
+	CoworkingID uuid.UUID `param:"coworkingId" validate:"required"`
 }
 
 type GetLayoutByVersionRequest struct {
-	CoworkingID uuid.UUID `json:"coworkingId"`
-	Version     int       `json:"version"`
+	CoworkingID uuid.UUID `param:"coworkingId" validate:"required"`
+	Version     int       `param:"version" validate:"required,gt=0"`
 }
 
 type ListLayoutVersionsRequest struct {
-	CoworkingID uuid.UUID `json:"coworkingId"`
+	CoworkingID uuid.UUID `param:"coworkingId" validate:"required"`
 }
 
 type CreateLayoutRequest struct {
-	CoworkingID uuid.UUID       `json:"coworkingId"`
-	Version     int             `json:"version"`
-	Layout      json.RawMessage `json:"layout"`
+	CoworkingID uuid.UUID       `json:"coworkingId" validate:"required"`
+	Version     int             `json:"version" validate:"required,gt=0"`
+	Layout      json.RawMessage `json:"layout" validate:"required"`
 }
 
 type SetCoworkingActiveRequest struct {
-	CoworkingID uuid.UUID `json:"coworkingId"`
+	CoworkingID uuid.UUID `param:"coworkingId" validate:"required"`
 }
 
 type SetCoworkingInactiveRequest struct {
-	CoworkingID uuid.UUID `json:"coworkingId"`
+	CoworkingID uuid.UUID `param:"coworkingId" validate:"required"`
 }

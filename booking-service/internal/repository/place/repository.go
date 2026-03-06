@@ -80,7 +80,7 @@ func (r *PlaceRepository) GetByID(
 			"c.is_active AS coworking_is_active",
 		).
 		From("place p").
-		Join("coworking ON coworking.id = p.coworking_id c").
+		Join("coworking c ON c.id = p.coworking_id").
 		Where("p.id = ?", id).
 		ToSql()
 
@@ -122,7 +122,7 @@ func (r *PlaceRepository) GetByCoworking(
 			"c.is_active AS coworking_is_active",
 		).
 		From("place p").
-		Join("coworking ON coworking.id = p.coworking_id c").
+		Join("coworking c ON c.id = p.coworking_id").
 		Where("p.coworking_id = ?", coworkingID).
 		ToSql()
 
@@ -165,7 +165,7 @@ func (r *PlaceRepository) GetAvailableByCoworking(
 			"c.is_active AS coworking_is_active",
 		).
 		From("place p").
-		Join("coworking ON coworking.id = p.coworking_id c").
+		Join("coworking c ON c.id = p.coworking_id").
 		Where("p.coworking_id = ?", coworkingID).
 		Where("p.is_active = TRUE").
 		Where(`p.id NOT IN (

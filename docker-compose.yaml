@@ -14,7 +14,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "pkg_isready -U ${AUTH_DB_USER:-authuser} -d ${AUTH_DB_NAME:-authdb}",
+          "pg_isready -U ${AUTH_DB_USER:-authuser} -d ${AUTH_DB_NAME:-authdb}",
         ]
       interval: 5s
       timeout: 5s
@@ -35,7 +35,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "pkg_isready -U ${BOOKING_DB_USER:-bookinguser} -d ${BOOKING_DB_NAME:-bookingdb}",
+          "pg_isready -U ${BOOKING_DB_USER:-bookinguser} -d ${BOOKING_DB_NAME:-bookingdb}",
         ]
       interval: 5s
       timeout: 5s
@@ -47,6 +47,8 @@ services:
     build:
       context: ./auth-service
       dockerfile: Dockerfile
+    env_file:
+      - ./auth-service/.env
     container_name: auth_service
     depends_on:
       postgres_auth:
@@ -59,11 +61,11 @@ services:
       CONFIG_PATH: "/config/config.yaml"
       # Server port
       SERVER_PORT: "${AUTH_SERVER_PORT:-8080}"
-      # JWT secrets
-      AUTH_PRIVATE_KEY: "${AUTH_PRIVATE_KEY}"
-      AUTH_PUBLIC_KEY: "${AUTH_PUBLIC_KEY}"
+      # Keys
+      AUTH_PRIVATE_KEY_PATH: "/app/keys/private.pem"
     volumes:
       - ./auth-service/config:/config:ro
+      - ./auth-service/keys:/app/keys:ro
     networks:
       - app-network
     healthcheck:
@@ -85,22 +87,25 @@ services:
     build:
       context: ./booking-service
       dockerfile: Dockerfile
+    env_file:
+      - ./booking-service/.env
     container_name: booking_service
     depends_on:
       postgres_booking:
         condition: service_healthy
     environment:
       # Postgres connection
-      POSTGRES_URL: "postgres://${BOOKING_DB_USER:-bookinguser}:${BOOKING_DB_PASSWORD:-bookingpass}@postgres_auth:5432/${BOOKING_DB_NAME:-bookingdb}?sslmode=disable"
+      POSTGRES_URL: "postgres://${BOOKING_DB_USER:-bookinguser}:${BOOKING_DB_PASSWORD:-bookingpass}@postgres_booking:5432/${BOOKING_DB_NAME:-bookingdb}?sslmode=disable"
       # Redis connection
       # Config path
       CONFIG_PATH: "/config/config.yaml"
       # Server port
       SERVER_PORT: "${BOOKING_SERVER_PORT:-8081}"
-      # JWT
-      AUTH_PUBLIC_KEY: "${AUTH_PUBLIC_KEY}"
+      # Keys
+      AUTH_PUBLIC_KEY_PATH: "/app/keys/public.pem"
     volumes:
       - ./booking-service/config:/config:ro
+      - ./booking-service/keys:/app/keys:ro
     networks:
       - app-network
     healthcheck:
@@ -113,10 +118,48 @@ services:
       timeout: 3s
       retries: 10
     ports:
-      - "${BOOKING_SERVER_PORT:-8081}:8080"
+      - "${BOOKING_SERVER_PORT:-8081}:8081"
     labels:
       - app=booking
       - env=prod
+
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: loki
+    command: -config.file=/mnt/config/loki-config.yaml
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki-config.yaml:/mnt/config/loki-config.yaml:ro
+      - loki_data:/loki
+    networks:
+      - app-network
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: promtail
+    command: -config.file=/mnt/config/promtail-config.yaml
+    depends_on:
+      - loki
+    volumes:
+      - ./promtail-config.yaml:/mnt/config/promtail-config.yaml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - app-network
+
+  grafana:
+    container_name: grafana
+    image: grafana/grafana-enterprise:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana-provisioning:/etc/grafana/provisioning
+    networks:
+      - app-network
+    depends_on:
+      - loki
 
 networks:
   app-network:
@@ -125,3 +168,5 @@ networks:
 volumes:
   postgres_auth_data:
   postgres_booking_data:
+  grafana_data:
+  loki_data:

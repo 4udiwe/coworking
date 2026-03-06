@@ -15,10 +15,10 @@ import (
 )
 
 type BookingRepository struct {
-	postgres.Postgres
+	*postgres.Postgres
 }
 
-func New(pg postgres.Postgres) *BookingRepository {
+func New(pg *postgres.Postgres) *BookingRepository {
 	return &BookingRepository{
 		Postgres: pg,
 	}
@@ -48,31 +48,27 @@ func (r *BookingRepository) Create(
 		Suffix("RETURNING id").
 		ToSql()
 
-	var ID uuid.UUID
-	rows, err := r.GetTxManager(ctx).Query(ctx, query, args...)
+	var id uuid.UUID
+
+	err := r.GetTxManager(ctx).
+		QueryRow(ctx, query, args...).
+		Scan(&id)
+
 	if err != nil {
 		mapped := MapPgError(err)
 
 		logrus.WithFields(logrus.Fields{
-			"booking_id": booking.ID.String(),
+			"booking_id": id.String(),
 			"place_id":   booking.Place.ID.String(),
 			"user_id":    booking.UserID.String(),
-		}).Warn("failed to create booking")
+		}).Warnf("failed to create booking: %v", err)
+
 		return uuid.Nil, mapped
 	}
 
-	err = rows.Scan(&ID)
-	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"booking_id": booking.ID.String(),
-			"place_id":   booking.Place.ID.String(),
-			"user_id":    booking.UserID.String(),
-		}).Warn("scan error")
-	}
+	logrus.WithField("booking_id", id.String()).Info("booking created")
 
-	logrus.WithField("booking_id", booking.ID.String()).Info("booking created")
-
-	return ID, nil
+	return id, nil
 }
 
 func (r *BookingRepository) GetByID(
@@ -86,7 +82,7 @@ func (r *BookingRepository) GetByID(
 			"b.user_id",
 			"b.place_id",
 			"p.label as place_label",
-			"p.type as place_type",
+			"p.place_type as place_type",
 			"p.coworking_id as place_coworking_id",
 			"p.is_active as place_is_active",
 			"b.start_time",
@@ -136,7 +132,7 @@ func (r *BookingRepository) ListByUser(
 			"b.user_id",
 			"b.place_id",
 			"p.label as place_label",
-			"p.type as place_type",
+			"p.place_type as place_type",
 			"p.coworking_id as place_coworking_id",
 			"p.is_active as place_is_active",
 			"b.start_time",

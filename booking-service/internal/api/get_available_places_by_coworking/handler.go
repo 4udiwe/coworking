@@ -28,7 +28,7 @@ type Response struct {
 }
 
 func (h *handler) Handle(ctx echo.Context, in Request) error {
-	places, err := h.s.GetAvailablePlacesByCoworking(ctx.Request().Context(), in.CoworkingID, in.StartTime, in.EndTime)
+	places, err := h.s.GetAvailablePlacesByCoworking(ctx.Request().Context(), in.CoworkingID, lo.FromPtr(in.StartTime), lo.FromPtr(in.EndTime))
 	if err != nil {
 		if errors.Is(err, booking_service.ErrCoworkingNotFound) {
 			return echo.NewHTTPError(http.StatusBadRequest, err.Error())

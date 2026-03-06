@@ -29,6 +29,8 @@ func (app *App) EchoHandler() *echo.Echo {
 }
 
 func (app *App) configureRouter(handler *echo.Echo) {
+	handler.Use(app.AuthMiddleware().Middleware)
+
 	// Public coworking and layout endpoints
 	coworkingGroup := handler.Group("/coworkings")
 	{
@@ -48,7 +50,7 @@ func (app *App) configureRouter(handler *echo.Echo) {
 	{
 		bookingGroup.POST("", app.PostBookingHandler().Handle)
 		bookingGroup.GET("/:bookingId", app.GetBookingByIdHandler().Handle)
-		bookingGroup.GET("", app.GetBookingsByUserHandler().Handle)
+		bookingGroup.GET("/user/:userId", app.GetBookingsByUserHandler().Handle)
 		bookingGroup.DELETE("/:bookingId", app.DeleteBookingHandler().Handle)
 	}
 
@@ -62,13 +64,13 @@ func (app *App) configureRouter(handler *echo.Echo) {
 			adminCoworkingGroup.PUT("/:coworkingId/activate", app.PutCoworkingActiveHandler().Handle)
 			adminCoworkingGroup.PUT("/:coworkingId/deactivate", app.PutCoworkingInactiveHandler().Handle)
 
-			adminCoworkingGroup.POST("/:coworkingId/places", app.PostPlacesHandler().Handle)
 			adminCoworkingGroup.POST("/:coworkingId/layouts", app.PostLayoutHandler().Handle)
 			adminCoworkingGroup.POST("/:coworkingId/layouts/rollback", app.PostLayoutRollbackHandler().Handle)
 		}
 
 		adminPlacesGroup := adminGroup.Group("/places")
 		{
+			adminPlacesGroup.POST("", app.PostPlacesHandler().Handle)
 			adminPlacesGroup.PUT("/:placeId/active", app.PutPlaceActiveHandler().Handle)
 		}
 

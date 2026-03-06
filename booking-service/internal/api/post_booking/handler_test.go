@@ -36,7 +36,6 @@ func TestPostBookingHandler_ValidationError(t *testing.T) {
 	in := dto.CreateBookingRequest{
 		UserID:      uuid.New(),
 		PlaceID:     uuid.New(),
-		CoworkingID: uuid.New(),
 		StartTime:   now.Add(2 * time.Hour),
 		EndTime:     now.Add(1 * time.Hour),
 	}

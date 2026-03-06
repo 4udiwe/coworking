@@ -24,6 +24,8 @@ func New(pg *postgres.Postgres) *CoworkingRepository {
 }
 
 func (r *CoworkingRepository) Create(ctx context.Context, coworking entity.Coworking) error {
+	logrus.Debugf("INSERTING COWORKING: name =%v, address = %v", coworking.Name, coworking.Address)
+
 	query, args, _ := r.Builder.
 		Insert("coworking").
 		Columns(

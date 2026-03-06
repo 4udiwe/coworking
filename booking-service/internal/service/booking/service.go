@@ -75,7 +75,7 @@ func (s *BookingService) UpdateCoworking(ctx context.Context, coworking entity.C
 }
 
 func (s *BookingService) GetCoworking(ctx context.Context, coworkingID uuid.UUID) (entity.Coworking, error) {
-	logrus.Infof("Getting coworking with ID: %s", coworkingID.String())
+	logrus.Infof("Getting coworking with ID: %s", coworkingID)
 
 	coworking, err := s.coworkingRepo.GetByID(ctx, coworkingID)
 	if err != nil {
@@ -192,7 +192,7 @@ func (s *BookingService) CreateLayoutVersion(ctx context.Context, layout entity.
 }
 
 func (s *BookingService) GetLatestLayout(ctx context.Context, coworkingID uuid.UUID) (entity.CoworkingLayout, error) {
-	logrus.Infof("Getting latest layout for coworking ID: %s", coworkingID.String())
+	logrus.Infof("Getting latest layout for coworking ID: %s", coworkingID)
 
 	layout, err := s.coworkingRepo.GetLatestLayout(ctx, coworkingID)
 	if err != nil {
@@ -207,7 +207,7 @@ func (s *BookingService) GetLatestLayout(ctx context.Context, coworkingID uuid.U
 }
 
 func (s *BookingService) GetLayoutByVersion(ctx context.Context, coworkingID uuid.UUID, version int) (entity.CoworkingLayout, error) {
-	logrus.Infof("Getting layout version %d for coworking ID: %s", version, coworkingID.String())
+	logrus.Infof("Getting layout version %d for coworking ID: %s", version, coworkingID)
 
 	layout, err := s.coworkingRepo.GetLayoutByVersion(ctx, coworkingID, version)
 	if err != nil {
@@ -222,7 +222,7 @@ func (s *BookingService) GetLayoutByVersion(ctx context.Context, coworkingID uui
 }
 
 func (s *BookingService) ListLayoutVersions(ctx context.Context, coworkingID uuid.UUID) ([]entity.CoworkingLayoutVersionTime, error) {
-	logrus.Infof("Listing layout versions for coworking ID: %s", coworkingID.String())
+	logrus.Infof("Listing layout versions for coworking ID: %s", coworkingID)
 
 	layoutVersions, err := s.coworkingRepo.ListLayoutVersions(ctx, coworkingID)
 	if err != nil {
@@ -252,7 +252,7 @@ func (s *BookingService) CreatePlacesBatch(ctx context.Context, places []entity.
 }
 
 func (s *BookingService) SetPlaceActive(ctx context.Context, placeID uuid.UUID, active bool) error {
-	logrus.Infof("Setting place ID %s active status to %t", placeID.String(), active)
+	logrus.Infof("Setting place ID %s active status to %t", placeID, active)
 
 	return s.txManager.WithinTransaction(ctx, func(ctx context.Context) error {
 		hasActiveBookings, err := s.placeRepo.CheckHasActiveBookings(ctx, placeID)
@@ -277,7 +277,7 @@ func (s *BookingService) SetPlaceActive(ctx context.Context, placeID uuid.UUID, 
 }
 
 func (s *BookingService) GetPlacesByCoworking(ctx context.Context, coworkingID uuid.UUID) ([]entity.Place, error) {
-	logrus.Infof("Getting places for coworking ID: %s", coworkingID.String())
+	logrus.Infof("Getting places for coworking ID: %v", coworkingID)
 
 	places, err := s.placeRepo.GetByCoworking(ctx, coworkingID)
 	if err != nil {
@@ -292,7 +292,7 @@ func (s *BookingService) GetPlacesByCoworking(ctx context.Context, coworkingID u
 }
 
 func (s *BookingService) GetPlaceByID(ctx context.Context, placeID uuid.UUID) (entity.Place, error) {
-	logrus.Infof("Getting place with ID: %s", placeID.String())
+	logrus.Infof("Getting place with ID: %s", placeID)
 
 	place, err := s.placeRepo.GetByID(ctx, placeID)
 	if err != nil {
@@ -307,7 +307,7 @@ func (s *BookingService) GetPlaceByID(ctx context.Context, placeID uuid.UUID) (e
 }
 
 func (s *BookingService) GetAvailablePlacesByCoworking(ctx context.Context, coworkingID uuid.UUID, start, end time.Time) ([]entity.Place, error) {
-	logrus.Infof("Getting available places for coworking ID: %s between %s and %s", coworkingID.String(), start.Format(time.RFC3339), end.Format(time.RFC3339))
+	logrus.Infof("Getting available places for coworking ID: %s between %s and %s", coworkingID, start.Format(time.RFC3339), end.Format(time.RFC3339))
 
 	places, err := s.placeRepo.GetAvailableByCoworking(ctx, coworkingID, start, end)
 	if err != nil {
@@ -322,7 +322,7 @@ func (s *BookingService) GetAvailablePlacesByCoworking(ctx context.Context, cowo
 }
 
 func (s *BookingService) CreateBooking(ctx context.Context, booking entity.Booking) error {
-	logrus.Infof("Creating booking for user ID: %s and place ID: %s", booking.UserID.String(), booking.Place.ID.String())
+	logrus.Infof("Creating booking for user ID: %s and place ID: %s", booking.UserID, booking.Place.ID)
 
 	if booking.StartTime.After(booking.EndTime) {
 		return ErrBookingStartTimeAfterEndTime
@@ -357,16 +357,7 @@ func (s *BookingService) CreateBooking(ctx context.Context, booking entity.Booki
 		}
 
 		// Check if coworking is active
-		coworking, err := s.coworkingRepo.GetByID(ctx, place.Coworking.ID)
-		if err != nil {
-			if errors.Is(err, repository.ErrCoworkingNotFound) {
-				return ErrCoworkingNotFound
-			}
-			logrus.Errorf("Failed to get coworking by ID: %v", err)
-			return ErrCannotCreateBooking
-		}
-
-		if !coworking.IsActive {
+		if !place.Coworking.IsActive {
 			return ErrCoworkingInactive
 		}
 
@@ -411,7 +402,7 @@ func (s *BookingService) CreateBooking(ctx context.Context, booking entity.Booki
 }
 
 func (s *BookingService) CancelBooking(ctx context.Context, bookingID uuid.UUID, reason *string) error {
-	logrus.Infof("Canceling booking with ID: %s", bookingID.String())
+	logrus.Infof("Canceling booking with ID: %s", bookingID)
 
 	return s.txManager.WithinTransaction(ctx, func(ctx context.Context) error {
 		// Check if booking exists and is active
@@ -461,7 +452,7 @@ func (s *BookingService) CancelBooking(ctx context.Context, bookingID uuid.UUID,
 }
 
 func (s *BookingService) CompleteBooking(ctx context.Context, bookingID uuid.UUID) error {
-	logrus.Infof("Completing booking with ID: %s", bookingID.String())
+	logrus.Infof("Completing booking with ID: %s", bookingID)
 
 	return s.txManager.WithinTransaction(ctx, func(ctx context.Context) error {
 		// Check if booking exists and is active
@@ -510,7 +501,7 @@ func (s *BookingService) CompleteBooking(ctx context.Context, bookingID uuid.UUI
 }
 
 func (s *BookingService) GetBookingByID(ctx context.Context, bookingID uuid.UUID) (entity.Booking, error) {
-	logrus.Infof("Getting booking with ID: %s", bookingID.String())
+	logrus.Infof("Getting booking with ID: %s", bookingID)
 
 	booking, err := s.bookingRepo.GetByID(ctx, bookingID)
 	if err != nil {
@@ -525,7 +516,7 @@ func (s *BookingService) GetBookingByID(ctx context.Context, bookingID uuid.UUID
 }
 
 func (s *BookingService) ListBookingsByUser(ctx context.Context, userID uuid.UUID) ([]entity.Booking, error) {
-	logrus.Infof("Listing bookings for user ID: %s", userID.String())
+	logrus.Infof("Listing bookings for user ID: %s", userID)
 
 	bookings, err := s.bookingRepo.ListByUser(ctx, userID)
 	if err != nil {
@@ -537,7 +528,7 @@ func (s *BookingService) ListBookingsByUser(ctx context.Context, userID uuid.UUI
 }
 
 func (s *BookingService) SetCoworkingActive(ctx context.Context, coworkingID uuid.UUID) error {
-	logrus.Infof("Setting coworking ID %s active status to %t", coworkingID.String(), true)
+	logrus.Infof("Setting coworking ID %s active status to %t", coworkingID, true)
 
 	err := s.coworkingRepo.SetActive(ctx, coworkingID, true)
 	if err != nil {
@@ -552,7 +543,7 @@ func (s *BookingService) SetCoworkingActive(ctx context.Context, coworkingID uui
 }
 
 func (s *BookingService) SetCoworkingInactive(ctx context.Context, coworkingID uuid.UUID) error {
-	logrus.Infof("Setting coworking ID %s active status to %t", coworkingID.String(), false)
+	logrus.Infof("Setting coworking ID %s active status to %t", coworkingID, false)
 
 	return s.txManager.WithinTransaction(ctx, func(ctx context.Context) error {
 		hasActiveBookings, err := s.coworkingRepo.CheckHasActiveBookings(ctx, coworkingID)
@@ -573,7 +564,7 @@ func (s *BookingService) SetCoworkingInactive(ctx context.Context, coworkingID u
 }
 
 func (s *BookingService) RollbackLatestLayoutVersion(ctx context.Context, coworkingID uuid.UUID) error {
-	logrus.Infof("Rolling back latest layout version for coworking ID: %s", coworkingID.String())
+	logrus.Infof("Rolling back latest layout version for coworking ID: %s", coworkingID)
 
 	err := s.coworkingRepo.RollbackLatestLayoutVersion(ctx, coworkingID)
 	if err != nil {

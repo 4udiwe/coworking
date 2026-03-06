@@ -386,22 +386,26 @@ paths:
       responses:
         "204":
           description: Коворкинг деактивирован
-  /admin/coworkings/{coworkingId}/places:
+  /admin/places:
     post:
       tags: [Admin]
       summary: Добавить место в коворкинг
       security: [{ bearerAuth: [] }]
-      parameters:
-        - in: path
-          name: coworkingId
-          required: true
-          schema: { type: string, format: uuid }
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreatePlaceRequest"
+              type: object
+              required: [coworkingId, label, placeType]
+              properties:
+                coworkingId:
+                  type: string
+                  format: uuid
+                label:
+                  type: string
+                placeType:
+                  type: string
       responses:
         "201":
           description: Место создано
@@ -746,15 +750,12 @@ components:
 
     CreateBookingRequest:
       type: object
-      required: [userId, placeId, coworkingId, startTime, endTime]
+      required: [userId, placeId, startTime, endTime]
       properties:
         userId:
           type: string
           format: uuid
         placeId:
-          type: string
-          format: uuid
-        coworkingId:
           type: string
           format: uuid
         startTime:

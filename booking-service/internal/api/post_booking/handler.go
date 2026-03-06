@@ -8,7 +8,7 @@ import (
 	"github.com/4udiwe/cowoking/booking-service/internal/api/dto"
 	"github.com/4udiwe/cowoking/booking-service/internal/entity"
 	booking_service "github.com/4udiwe/cowoking/booking-service/internal/service/booking"
-	"github.com/4udiwe/coworking/auth-service/pgk/decorator"
+	"github.com/4udiwe/coworking/auth-service/pkg/decorator"
 	"github.com/labstack/echo/v4"
 )
 
@@ -27,9 +27,6 @@ func (h *handler) Handle(ctx echo.Context, in Request) error {
 		UserID: in.UserID,
 		Place: entity.Place{
 			ID: in.PlaceID,
-			Coworking: entity.Coworking{
-				ID: in.CoworkingID,
-			},
 		},
 		StartTime: in.StartTime,
 		EndTime:   in.EndTime,
