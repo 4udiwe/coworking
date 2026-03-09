@@ -1,8 +1,6 @@
 package app
 
 import (
-	"time"
-
 	log "github.com/sirupsen/logrus"
 )
 
@@ -15,6 +13,6 @@ func initLogger(level string) {
 	}
 
 	log.SetFormatter(&log.JSONFormatter{
-		TimestampFormat: time.DateTime,
+		DisableTimestamp: true,
 	})
 }

@@ -46,7 +46,7 @@
 ## booking.booking.cancelled
 - Описание: Бронирование отменено
 - Публикует: booking-service
-- Слушают: notification, analytics
+- Слушают: notification, analytics, scheduler
 
 ```json
 {

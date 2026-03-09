@@ -6,7 +6,7 @@ import (
 
 	"github.com/4udiwe/avito-pvz/pkg/postgres"
 	"github.com/4udiwe/big-bob-pizza/order-service/pkg/outbox"
-	"github.com/4udiwe/cowoking/booking-service/internal/entity"
+	"github.com/4udiwe/cowoking/scheduler-service/internal/entity"
 	"github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"

@@ -1,9 +1,6 @@
 app:
-  name: "coworking-booking-service"
+  name: "coworking-scheduler-service"
   version: "1.0.0"
-
-http:
-  port: "8080"
 
 logger:
   level: "debug"
@@ -11,11 +8,15 @@ logger:
 postgres:
   connect_timeout: 5s
 
+worker:
+  worker_batch_limit: 20
+  interval: 5s
+
 kafka:
   brokers:
     - "kafka:9092"
   topics:
-    scheduler_events: "scheduler.events"
+    booking_events: "booking.events"
 
   producer:
     required_acks: 1
@@ -24,15 +25,18 @@ kafka:
     compression: "snappy"
 
   consumer:
-    group_id: "booking-service"
+    group_id: "scheduler-service"
     max_wait: 50ms
     session_timeout: 10s
     heartbeat_interval: 3s
     commit_interval: 1s
 
 outbox:
-  topic: "booking.events"
+  topic: "scheduler.events"
   batch_limit: 5
   interval: 3s
   reque_batch_limit: 10
   reque_interval: 30s
+
+scheduler:
+  remind_before: 10m

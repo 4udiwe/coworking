@@ -43,6 +43,27 @@ services:
     networks:
       - app-network
 
+  postgres_scheduler:
+    image: postgres:15
+    container_name: postgres_scheduler
+    environment:
+      POSTGRES_USER: ${SCHEDULER_DB_USER:-scheduleruser}
+      POSTGRES_PASSWORD: ${SCHEDULER_DB_PASSWORD:-schedulerpass}
+      POSTGRES_DB: ${SCHEDULER_DB_NAME:-schedulerdb}
+    volumes:
+      - postgres_scheduler_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${SCHEDULER_DB_USER:-SCHEDULER_DB_USER} -d ${SCHEDULER_DB_NAME:-schedulerdb}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app-network
+
   auth-service:
     build:
       context: ./auth-service
@@ -93,6 +114,8 @@ services:
     depends_on:
       postgres_booking:
         condition: service_healthy
+      kafka:
+        condition: service_started
     environment:
       # Postgres connection
       POSTGRES_URL: "postgres://${BOOKING_DB_USER:-bookinguser}:${BOOKING_DB_PASSWORD:-bookingpass}@postgres_booking:5432/${BOOKING_DB_NAME:-bookingdb}?sslmode=disable"
@@ -121,6 +144,32 @@ services:
       - "${BOOKING_SERVER_PORT:-8081}:8081"
     labels:
       - app=booking
+      - env=prod
+
+  scheduler-service:
+    build:
+      context: ./scheduler-service
+      dockerfile: Dockerfile
+    env_file:
+      - ./scheduler-service/.env
+    container_name: scheduler_service
+    depends_on:
+      postgres_scheduler:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    environment:
+      # Postgres connection
+      POSTGRES_URL: "postgres://${SCHEDULER_DB_USER:-scheduleruser}:${SCHEDULER_DB_PASSWORD:-schedulerpass}@postgres_scheduler:5432/${SCHEDULER_DB_NAME:-schedulerdb}?sslmode=disable"
+      # Redis connection
+      # Config path
+      CONFIG_PATH: "/config/config.yaml"
+    volumes:
+      - ./scheduler-service/config:/config:ro
+    networks:
+      - app-network
+    labels:
+      - app=scheduler
       - env=prod
 
   loki:
@@ -161,6 +210,57 @@ services:
     depends_on:
       - loki
 
+  # Zookeeper для Kafka
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - app-network
+
+  # Kafka
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      # Zookeeper
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      # LISTENERS — фактические порты, которые Kafka слушает
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
+      # ADVERTISED LISTENERS — как к ней подключаются клиенты
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9092
+      # mapping listener names
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      # автоматическое создание топиков при публикации
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      # Kafka internal settings
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    networks:
+      - app-network
+
+  # Kafka UI
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka_ui
+    depends_on:
+      - kafka
+    ports:
+      - "${KAFKA_UI_PORT:-8082}:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: "local"
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: "kafka:9092"
+      KAFKA_CLUSTERS_0_ZOOKEEPER: "zookeeper:2181"
+    networks:
+      - app-network
+
 networks:
   app-network:
     driver: bridge
@@ -168,5 +268,6 @@ networks:
 volumes:
   postgres_auth_data:
   postgres_booking_data:
+  postgres_scheduler_data:
   grafana_data:
   loki_data:
