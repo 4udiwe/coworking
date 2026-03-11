@@ -1,0 +1,47 @@
+app:
+  name: "coworking-notification-service"
+  version: "1.0.0"
+
+logger:
+  level: "debug"
+
+http:
+  port: "8083"
+
+postgres:
+  connect_timeout: 5s
+
+worker:
+  worker_batch_limit: 20
+  interval: 5s
+
+kafka:
+  brokers:
+    - "kafka:9092"
+  topics:
+    booking_events: "booking.events"
+    scheduler_events: "scheduler.events"
+    notification_events: "notification.events"
+
+  producer:
+    required_acks: 1
+    batch_size: 5
+    batch_timeout: 50ms
+    compression: "snappy"
+
+  consumer:
+    group_id: "notification-service"
+    max_wait: 50ms
+    session_timeout: 10s
+    heartbeat_interval: 3s
+    commit_interval: 1s
+
+outbox:
+  topic: "notification.events"
+  batch_limit: 5
+  interval: 3s
+  reque_batch_limit: 10
+  reque_interval: 30s
+
+push_sender:
+  service_account_path: "config/firebase-service-account.json"

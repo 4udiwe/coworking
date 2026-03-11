@@ -1,3 +1,4 @@
 .env
 coverage.*
 *.pem
+firebase-service-account.json

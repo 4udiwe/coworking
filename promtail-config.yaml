@@ -36,9 +36,28 @@ scrape_configs:
           expressions:
             level: level
             msg: msg
+            notification_id: notification_id
+            user_id: user_id
+            device: device
+            device_token: token
+            title: title
+            type: type
+            email: email
+            role: role
 
       - labels:
           level:
+          service:
+
+      - structured_metadata:
+          notification_id:
+          user_id:
+          device:
+          device_token:
+          title:
+          type:
+          email:
+          role:
 
       - output:
           source: msg

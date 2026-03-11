@@ -64,6 +64,27 @@ services:
     networks:
       - app-network
 
+  postgres_notification:
+    image: postgres:15
+    container_name: postgres_notification
+    environment:
+      POSTGRES_USER: ${NOTIFICATION_DB_USER:-notificationuser}
+      POSTGRES_PASSWORD: ${NOTIFICATION_DB_PASSWORD:-notificationpass}
+      POSTGRES_DB: ${NOTIFICATION_DB_NAME:-notificationdb}
+    volumes:
+      - postgres_notification_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${NOTIFICATION_DB_USER:-NOTIFICATION_DB_USER} -d ${NOTIFICATION_DB_NAME:-notificationdb}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app-network
+
   auth-service:
     build:
       context: ./auth-service
@@ -119,7 +140,6 @@ services:
     environment:
       # Postgres connection
       POSTGRES_URL: "postgres://${BOOKING_DB_USER:-bookinguser}:${BOOKING_DB_PASSWORD:-bookingpass}@postgres_booking:5432/${BOOKING_DB_NAME:-bookingdb}?sslmode=disable"
-      # Redis connection
       # Config path
       CONFIG_PATH: "/config/config.yaml"
       # Server port
@@ -161,7 +181,6 @@ services:
     environment:
       # Postgres connection
       POSTGRES_URL: "postgres://${SCHEDULER_DB_USER:-scheduleruser}:${SCHEDULER_DB_PASSWORD:-schedulerpass}@postgres_scheduler:5432/${SCHEDULER_DB_NAME:-schedulerdb}?sslmode=disable"
-      # Redis connection
       # Config path
       CONFIG_PATH: "/config/config.yaml"
     volumes:
@@ -170,6 +189,34 @@ services:
       - app-network
     labels:
       - app=scheduler
+      - env=prod
+
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    env_file:
+      - ./notification-service/.env
+    container_name: notification_service
+    depends_on:
+      postgres_notification:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    environment:
+      # Postgres connection
+      POSTGRES_URL: "postgres://${NOTIFICATION_DB_USER:-notificationuser}:${NOTIFICATION_DB_PASSWORD:-notificationpass}@postgres_notification:5432/${NOTIFICATION_DB_NAME:-notificationdb}?sslmode=disable"
+      # Config path
+      CONFIG_PATH: "/config/config.yaml"
+      # Keys
+      AUTH_PUBLIC_KEY_PATH: "/app/keys/public.pem"
+    volumes:
+      - ./notification-service/config:/config:ro
+      - ./notification-service/keys:/app/keys:ro
+    networks:
+      - app-network
+    labels:
+      - app=notification
       - env=prod
 
   loki:
@@ -269,5 +316,6 @@ volumes:
   postgres_auth_data:
   postgres_booking_data:
   postgres_scheduler_data:
+  postgres_notification_data:
   grafana_data:
   loki_data:

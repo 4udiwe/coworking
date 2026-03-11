@@ -437,6 +437,7 @@ func (s *BookingService) CancelBooking(ctx context.Context, bookingID uuid.UUID,
 			EventType:     "cancelled",
 			Payload: map[string]any{
 				"bookingId": booking.ID,
+				"userID":    booking.UserID,
 				"reason":    reason,
 			},
 			Status:    entity.OutboxStatus{ID: 1, Name: "pending"},
@@ -487,6 +488,7 @@ func (s *BookingService) CompleteBooking(ctx context.Context, bookingID uuid.UUI
 			EventType:     "completed",
 			Payload: map[string]any{
 				"bookingId": booking.ID,
+				"userId":    booking.UserID,
 			},
 			Status:    entity.OutboxStatus{ID: 1, Name: "pending"},
 			CreatedAt: time.Now(),
