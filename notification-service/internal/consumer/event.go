@@ -29,11 +29,12 @@ type IncomingEvent struct {
 // Тип данных входящего события. Перечисленны все поля, которые могут быть в событиии.
 // (omitempty опускает поле, если его нет)
 type Payload struct {
-	BookingID      uuid.UUID `json:"bookingId,omitempty"`
-	NotificationID uuid.UUID `json:"notificataionId,omitempty"`
-	UserID         uuid.UUID `json:"userId,omitempty"`
-	PlaceID        uuid.UUID `json:"placeId,omitempty"`
-	StartTime      time.Time `json:"startTime,omitzero"`
-	EndTime        time.Time `json:"endTime,omitzero"`
-	Reason         string    `json:"reason,omitempty"`
+	BookingID        uuid.UUID `json:"bookingId,omitempty"`
+	NotificationID   uuid.UUID `json:"notificataionId,omitempty"`
+	NotificationType string    `json:"notificataionType,omitempty"`
+	UserID           uuid.UUID `json:"userId,omitempty"`
+	PlaceID          uuid.UUID `json:"placeId,omitempty"`
+	StartTime        time.Time `json:"startTime,omitzero"`
+	EndTime          time.Time `json:"endTime,omitzero"`
+	Reason           string    `json:"reason,omitempty"`
 }

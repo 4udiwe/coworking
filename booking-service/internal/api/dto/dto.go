@@ -102,18 +102,13 @@ type SetPlaceActiveRequest struct {
 }
 
 type CreateBookingRequest struct {
-	UserID      uuid.UUID `json:"userId" validate:"required"`
-	PlaceID     uuid.UUID `json:"placeId" validate:"required"`
-	StartTime   time.Time `json:"startTime" validate:"required"`
-	EndTime     time.Time `json:"endTime" validate:"required,gtfield=StartTime"`
+	PlaceID   uuid.UUID `json:"placeId" validate:"required"`
+	StartTime time.Time `json:"startTime" validate:"required"`
+	EndTime   time.Time `json:"endTime" validate:"required,gtfield=StartTime"`
 }
 
 type GetBookingByIDRequest struct {
 	BookingID uuid.UUID `param:"bookingId" validate:"required"`
-}
-
-type ListBookingsByUserRequest struct {
-	UserID uuid.UUID `param:"userId" validate:"required"`
 }
 
 type CancelBookingRequest struct {

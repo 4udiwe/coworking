@@ -6,6 +6,7 @@ import (
 
 	"github.com/4udiwe/cowoking/booking-service/internal/api"
 	"github.com/4udiwe/cowoking/booking-service/internal/api/dto"
+	"github.com/4udiwe/cowoking/booking-service/internal/api/middleware"
 	"github.com/4udiwe/cowoking/booking-service/internal/entity"
 	booking_service "github.com/4udiwe/cowoking/booking-service/internal/service/booking"
 	"github.com/4udiwe/coworking/auth-service/pkg/decorator"
@@ -23,8 +24,13 @@ func New(bookingService BookingService) api.Handler {
 type Request = dto.CreateBookingRequest
 
 func (h *handler) Handle(ctx echo.Context, in Request) error {
+	claims, err := middleware.GetUserFromContext(ctx)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	}
+
 	booking := entity.Booking{
-		UserID: in.UserID,
+		UserID: claims.UserID,
 		Place: entity.Place{
 			ID: in.PlaceID,
 		},
@@ -32,7 +38,7 @@ func (h *handler) Handle(ctx echo.Context, in Request) error {
 		EndTime:   in.EndTime,
 	}
 
-	err := h.s.CreateBooking(ctx.Request().Context(), booking)
+	err = h.s.CreateBooking(ctx.Request().Context(), booking)
 
 	if err != nil {
 		if errors.Is(err, booking_service.ErrBookingStartTimeAfterEndTime) ||

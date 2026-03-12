@@ -157,7 +157,9 @@ func (s *NotificationService) CreateNotification(
 			AggregateID:   id,
 			EventType:     "created",
 			Payload: map[string]any{
-				"notificataionId": id,
+				"notificataionId":  id,
+				"notificationType": notification.Type,
+				"userId":           notification.UserID,
 			},
 		}
 

@@ -95,12 +95,12 @@
 ## notification.sent
 - Описание: Уведомление отправлено пользователю
 - Публикует: notification-service
-- Слушают: analytics-service
+- Слушают: notification, analytics-service
 
 ```json
 {
   "userId": "UUID",
-  "channel": "push | email",
-  "type": "booking_reminder"
+  "notificationType": "booking_reminder",
+  "notificationId": "UUID"
 }
 ```

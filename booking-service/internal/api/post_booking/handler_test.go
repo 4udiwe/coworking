@@ -34,10 +34,9 @@ func TestPostBookingHandler_ValidationError(t *testing.T) {
 
 	now := time.Now().UTC()
 	in := dto.CreateBookingRequest{
-		UserID:      uuid.New(),
-		PlaceID:     uuid.New(),
-		StartTime:   now.Add(2 * time.Hour),
-		EndTime:     now.Add(1 * time.Hour),
+		PlaceID:   uuid.New(),
+		StartTime: now.Add(2 * time.Hour),
+		EndTime:   now.Add(1 * time.Hour),
 	}
 
 	err := h.Handle(c, in)
@@ -57,4 +56,3 @@ func TestPostBookingHandler_ValidationError(t *testing.T) {
 		t.Fatalf("expected same error to be returned")
 	}
 }
-
