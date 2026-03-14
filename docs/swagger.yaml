@@ -316,12 +316,76 @@ paths:
   # 📊 ANALYTICS
   ##################
 
-  /analytics/usage:
+  /analytics/hourly:
     get:
       tags: [Analytics]
-      summary: Статистика использования коворкинга
+      summary: Занятность коворкинга по часам за весь день
       security:
         - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoworkingAnalyticsRequest"
+      responses:
+        "200":
+          description: Статистика
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsageStats"
+
+  /analytics/weekday:
+    get:
+      tags: [Analytics]
+      summary: Занятность коворкинга по дням недели
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoworkingAnalyticsRequest"
+      responses:
+        "200":
+          description: Статистика
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsageStats"
+  /analytics/coworking_heatmap:
+    get:
+      tags: [Analytics]
+      summary: Получение тепловой карты занятости коворкинга (дни недели х часы)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CoworkingAnalyticsRequest"
+      responses:
+        "200":
+          description: Статистика
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsageStats"
+  /analytics/place_heatmap:
+    get:
+      tags: [Analytics]
+      summary: Получение тепловой карты занятости места (дни недели х часы)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlaceAnalyticsRequest"
       responses:
         "200":
           description: Статистика
@@ -581,28 +645,7 @@ paths:
       responses:
         "202":
           description: Откат запущен
-  /admin/analytics/usage:
-    get:
-      tags: [Admin]
-      summary: Расширенная статистика использования
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - in: query
-          name: coworking_id
-          schema: { type: string, format: uuid }
-        - in: query
-          name: from
-          schema: { type: string, format: date }
-        - in: query
-          name: to
-          schema: { type: string, format: date }
-      responses:
-        "200":
-          description: Детальная статистика
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/UsageStats"
+
 
 components:
   securitySchemes:
@@ -692,6 +735,22 @@ components:
           type: string
         address:
           type: string
+
+    CoworkingAnalyticsRequest:
+      type: object
+      required: [coworkingId]
+      properties:
+        coworkingId:
+          type: string
+          format: uuid
+
+    PlaceAnalyticsRequest:
+      type: object
+      required: [placeId]
+      properties:
+        placeId:
+          type: string
+          format: uuid
 
     Place:
       type: object
