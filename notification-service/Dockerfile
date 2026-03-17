@@ -21,5 +21,5 @@ COPY --from=builder /app/notification-service /app/notification-service
 COPY --from=builder /app/internal/database/migrations /app/database/migrations
 
 WORKDIR /app
-EXPOSE 8083
+EXPOSE 8082
 CMD ["/app/notification-service"]

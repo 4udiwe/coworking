@@ -114,7 +114,9 @@ services:
     environment:
       CLICKHOUSE_URL: http://clickhouse_analytics:8123
     depends_on:
-      - clickhouse_analytics
+      clickhouse_analytics:
+        condition: service_healthy
+    command: ["server"]
     networks:
       - app-network
 
@@ -152,8 +154,6 @@ services:
       interval: 10s
       timeout: 3s
       retries: 10
-    ports:
-      - "${AUTH_SERVER_PORT:-8080}:8080"
     labels:
       - app=auth
       - env=prod
@@ -193,8 +193,6 @@ services:
       interval: 10s
       timeout: 3s
       retries: 10
-    ports:
-      - "${BOOKING_SERVER_PORT:-8081}:8081"
     labels:
       - app=booking
       - env=prod
@@ -243,9 +241,20 @@ services:
       CONFIG_PATH: "/config/config.yaml"
       # Keys
       AUTH_PUBLIC_KEY_PATH: "/app/keys/public.pem"
+      # Server port
+      SERVER_PORT: "${NOTIFICATION_SERVER_PORT:-8082}"
     volumes:
       - ./notification-service/config:/config:ro
       - ./notification-service/keys:/app/keys:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://localhost:${NOTIFICATION_SERVER_PORT:-8082}/health || exit 1",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 10
     networks:
       - app-network
     labels:
@@ -267,15 +276,44 @@ services:
     environment:
       # Config path
       CONFIG_PATH: "/config/config.yaml"
+      # Server port
+      SERVER_PORT: "${ANALYTICS_SERVER_PORT:-8083}"
     volumes:
       - ./analytics-service/config:/config:ro
       - ./analytics-service/keys:/app/keys:ro
-    ports:
-      - "${ANALYTICS_SERVER_PORT:-8084}:8084"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://localhost:${ANALYTICS_SERVER_PORT:-8083}/health || exit 1",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 10
     networks:
       - app-network
     labels:
       - app=analytics
+      - env=prod
+
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    container_name: gateway
+    depends_on:
+      - booking-service
+      - auth-service
+      - notification-service
+      - analytics-service
+    volumes:
+      - ./gateway/config:/config:ro
+    ports:
+      - "${GATEWAY_SERVER_PORT:-8080}:8080"
+    networks:
+      - app-network
+    labels:
+      - app=gateway
       - env=prod
 
   loki:

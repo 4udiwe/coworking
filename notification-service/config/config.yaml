@@ -3,7 +3,7 @@ app:
   version: "1.0.0"
 
 logger:
-  level: "debug"
+  level: "info"
 
 http:
   port: "8083"

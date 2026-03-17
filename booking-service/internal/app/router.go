@@ -50,7 +50,7 @@ func (app *App) configureRouter(handler *echo.Echo) {
 	{
 		bookingGroup.POST("", app.PostBookingHandler().Handle)
 		bookingGroup.GET("/:bookingId", app.GetBookingByIdHandler().Handle)
-		bookingGroup.GET("/user/:userId", app.GetBookingsByUserHandler().Handle)
+		bookingGroup.GET("", app.GetBookingsByUserHandler().Handle)
 		bookingGroup.DELETE("/:bookingId", app.DeleteBookingHandler().Handle)
 	}
 

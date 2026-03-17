@@ -1,0 +1,30 @@
+app:
+  name: coworking-gateway
+
+http:
+  port: "8080"
+
+logger:
+  level: info
+
+rate_limit:
+  requests_per_second: 100
+
+routes:
+  - path: /auth
+    upstream: http://auth-service:8080
+  - path: /users
+    upstream: http://auth-service:8080
+
+  - path: /bookings
+    upstream: http://booking-service:8081
+  - path: /coworkings
+    upstream: http://booking-service:8081
+  - path: /admin
+    upstream: http://booking-service:8081
+
+  - path: /notifications
+    upstream: http://notification-service:8082
+
+  - path: /analytics
+    upstream: http://analytics-service:8083
