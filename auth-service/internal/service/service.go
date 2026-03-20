@@ -46,6 +46,8 @@ func (s *Service) Register(
 	ctx context.Context,
 	email string,
 	password string,
+	firstName string,
+	lastName string,
 	roleCode string,
 	userAgent string,
 	deviceInfo string,
@@ -82,6 +84,8 @@ func (s *Service) Register(
 
 		// Create user
 		user := entity.User{
+			FirstName:    firstName,
+			LastName:     lastName,
 			Email:        email,
 			PasswordHash: passwordHash,
 			IsActive:     true,

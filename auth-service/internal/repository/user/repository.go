@@ -30,13 +30,15 @@ func (r *UserRepository) Create(
 
 	query, args, _ := r.Builder.
 		Insert("users").
-		Columns("email", "password_hash").
-		Values(user.Email, user.PasswordHash).
+		Columns("email", "first_name", "last_name", "password_hash").
+		Values(user.Email, user.FirstName, user.LastName, user.PasswordHash).
 		Suffix("RETURNING id, email, password_hash, is_active, created_at, updated_at").
 		ToSql()
 
 	err := r.GetTxManager(ctx).QueryRow(ctx, query, args...).Scan(
 		&user.ID,
+		&user.FirstName,
+		&user.LastName,
 		&user.Email,
 		&user.PasswordHash,
 		&user.IsActive,
@@ -106,6 +108,8 @@ func (r *UserRepository) GetByEmail(
 	query, args, _ := r.Builder.
 		Select(
 			"u.id",
+			"u.first_name",
+			"u.last_name",
 			"u.email",
 			"u.password_hash",
 			"u.is_active",
@@ -136,6 +140,8 @@ func (r *UserRepository) GetByEmail(
 
 		if err := rows.Scan(
 			&user.ID,
+			&user.FirstName,
+			&user.LastName,
 			&user.Email,
 			&user.PasswordHash,
 			&user.IsActive,
@@ -172,6 +178,8 @@ func (r *UserRepository) GetByID(
 	const query = `
 		SELECT
 			u.id,
+			u.first_name,
+			u.last_name,
 			u.email,
 			u.password_hash,
 			u.is_active,
@@ -204,6 +212,8 @@ func (r *UserRepository) GetByID(
 
 		err := rows.Scan(
 			&raw.ID,
+			&raw.FirstName,
+			&raw.LastName,
 			&raw.Email,
 			&raw.PasswordHash,
 			&raw.IsActive,
@@ -221,6 +231,8 @@ func (r *UserRepository) GetByID(
 		if !found {
 			user = entity.User{
 				ID:           raw.ID,
+				FirstName:    raw.FirstName,
+				LastName:     raw.LastName,
 				Email:        raw.Email,
 				PasswordHash: raw.PasswordHash,
 				IsActive:     raw.IsActive,

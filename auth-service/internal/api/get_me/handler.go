@@ -25,6 +25,8 @@ type Request struct{}
 
 type ResponseUser struct {
 	ID        string         `json:"id"`
+	FirstName string         `json:"first_name"`
+	LastName  string         `json:"last_name"`
 	Email     string         `json:"email"`
 	IsActive  bool           `json:"isActive"`
 	CreatedAt string         `json:"createdAt"`
@@ -60,6 +62,8 @@ func (h *handler) Handle(ctx echo.Context, in Request) error {
 	}
 	return ctx.JSON(http.StatusOK, ResponseUser{
 		ID:        user.ID.String(),
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
 		Email:     user.Email,
 		IsActive:  user.IsActive,
 		CreatedAt: user.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),

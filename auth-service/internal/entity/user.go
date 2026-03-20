@@ -7,11 +7,13 @@ import (
 )
 
 type User struct {
-	ID           uuid.UUID 
-	Email        string    
-	PasswordHash string    
-	IsActive     bool      
-	CreatedAt    time.Time 
-	UpdatedAt    time.Time 
+	ID           uuid.UUID
+	FirstName    string
+	LastName     string
+	Email        string
+	PasswordHash string
+	IsActive     bool
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 	Roles        []Role
 }

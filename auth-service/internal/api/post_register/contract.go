@@ -11,6 +11,8 @@ type UserService interface {
 		ctx context.Context,
 		email string,
 		password string,
+		firstName string,
+		lastName string,
 		roleCode string,
 		userAgent string,
 		deviceInfo string,

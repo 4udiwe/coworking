@@ -19,9 +19,11 @@ func New(userService UserService) api.Handler {
 }
 
 type Request struct {
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required,min=8,max=64"`
-	RoleCode string `json:"roleCode" validate:"required"`
+	FirstName string `json:"first_name" validate:"required"`
+	LastName  string `json:"last_name" validate:"required"`
+	Email     string `json:"email" validate:"required,email"`
+	Password  string `json:"password" validate:"required,min=8,max=64"`
+	RoleCode  string `json:"roleCode" validate:"required"`
 }
 
 func (h *handler) Handle(ctx echo.Context, in Request) error {
@@ -30,7 +32,7 @@ func (h *handler) Handle(ctx echo.Context, in Request) error {
 
 	deviceName := api.ExtractDeviceName(userAgent)
 
-	tokens, err := h.s.Register(ctx.Request().Context(), in.Email, in.Password, in.RoleCode, userAgent, deviceName, ip)
+	tokens, err := h.s.Register(ctx.Request().Context(), in.Email, in.Password, in.FirstName, in.LastName, in.RoleCode, userAgent, deviceName, ip)
 
 	if err != nil {
 		// Validation errors

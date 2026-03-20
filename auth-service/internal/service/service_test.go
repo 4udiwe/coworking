@@ -20,11 +20,11 @@ import (
 
 func TestService_Register(t *testing.T) {
 	type mocks struct {
-		ur *m.MockUserRepository
-		ar *m.MockAuthRepository
-		tx *mock_tx.MockTransactor
-		a  *m.MockAuth
-		h  *m.MockHasher
+		ur           *m.MockUserRepository
+		ar           *m.MockAuthRepository
+		tx           *mock_tx.MockTransactor
+		a            *m.MockAuth
+		h            *m.MockHasher
 		jwtValidator *m.MockJwtValidator
 	}
 
@@ -55,7 +55,6 @@ func TestService_Register(t *testing.T) {
 					Return(&auth.Tokens{RefreshToken: "rt"}, nil)
 
 				m.a.EXPECT().HashToken("rt").Return("hashRT")
-
 
 				m.ar.EXPECT().
 					CreateSession(gomock.Any(), gomock.Any(), "hashRT").
@@ -130,7 +129,7 @@ func TestService_Register(t *testing.T) {
 				tt.mockBehavior(m)
 			}
 
-			_, err := s.Register(context.Background(), "mail", "pass", "student", "ua", "device", "ip")
+			_, err := s.Register(context.Background(), "mail", "pass", "first", "last", "student", "ua", "device", "ip")
 
 			if tt.expectedErr != nil {
 				require.Error(t, err)
@@ -615,11 +614,11 @@ func TestService_Logout(t *testing.T) {
 
 func TestService_Register_Validation(t *testing.T) {
 	s := service.New(nil, nil, nil, nil, nil, 7*24*time.Hour)
-	_, err := s.Register(context.Background(), "", "pass", "student", "ua", "device", "ip")
+	_, err := s.Register(context.Background(), "", "pass", "first", "last", "student", "ua", "device", "ip")
 	require.ErrorIs(t, err, service.ErrEmptyEmail)
-	_, err = s.Register(context.Background(), "mail", "", "student", "ua", "device", "ip")
+	_, err = s.Register(context.Background(), "mail", "", "first", "last", "student", "ua", "device", "ip")
 	require.ErrorIs(t, err, service.ErrEmptyPassword)
-	_, err = s.Register(context.Background(), "mail", "pass", "", "ua", "device", "ip")
+	_, err = s.Register(context.Background(), "mail", "pass", "first", "last", "", "ua", "device", "ip")
 	require.ErrorIs(t, err, service.ErrEmptyRoleCode)
 }
 
