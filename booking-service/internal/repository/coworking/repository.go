@@ -330,7 +330,8 @@ func (r *CoworkingRepository) CheckHasActiveBookings(ctx context.Context, cowork
 		Select("1").
 		From("booking b").
 		Join("place p ON b.place_id = p.id").
-		Where(squirrel.Eq{"p.coworking_id": coworkingID, "b.status": "active"}).
+		Where(squirrel.Eq{"p.coworking_id": coworkingID}).
+		Where("b.status_id = (SELECT id FROM booking_status WHERE name = ?)", "active").
 		Limit(1).
 		ToSql()
 

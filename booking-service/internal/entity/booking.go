@@ -17,6 +17,7 @@ const (
 type Booking struct {
 	ID           uuid.UUID
 	UserID       uuid.UUID
+	UserName     string
 	Place        Place
 	StartTime    time.Time
 	EndTime      time.Time

@@ -316,68 +316,127 @@ paths:
   # 📊 ANALYTICS
   ##################
 
-  /analytics/hourly:
+  /analytics/hourly{coworkingId}:
     get:
       tags: [Analytics]
       summary: Занятность коворкинга по часам за весь день
       security:
         - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CoworkingAnalyticsRequest"
+      parameters:
+        - in: path
+          name: coworkingId
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         "200":
           description: Статистика
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UsageStats"
+                $ref: "#/components/schemas/HourlyLoadResponse"
 
-  /analytics/weekday:
+  /analytics/weekday/{coworkingId}:
     get:
       tags: [Analytics]
       summary: Занятность коворкинга по дням недели
       security:
         - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CoworkingAnalyticsRequest"
+      parameters:
+        - in: path
+          name: coworkingId
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         "200":
           description: Статистика
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UsageStats"
-  /analytics/coworking_heatmap:
+                $ref: "#/components/schemas/WeekdayLoadResponse"
+  /analytics/coworking_heatmap/{coworkingId}:
     get:
       tags: [Analytics]
       summary: Получение тепловой карты занятости коворкинга (дни недели х часы)
       security:
         - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CoworkingAnalyticsRequest"
+      parameters:
+        - in: path
+          name: coworkingId
+          required: true
+          schema:
+            type: string
+            format: uuid
       responses:
         "200":
           description: Статистика
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UsageStats"
-  /analytics/place_heatmap:
+                $ref: "#/components/schemas/CoworkingHeatmapResponse"
+  /analytics/place_heatmap/{placeId}:
     get:
       tags: [Analytics]
       summary: Получение тепловой карты занятости места (дни недели х часы)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: placeId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Статистика
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlaceHeatmapResponse"
+
+  ##################
+  # 🔔 NOTIFICATIONS
+  ##################
+
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: Получить непрочитанные уведомления
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Список непрочитанных уведомлений (лимит 10)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  notifications:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Notification"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /notifications/device:
+    post:
+      tags: [Notifications]
+      summary: Регистрация push-токена устройства
       security:
         - bearerAuth: []
       requestBody:
@@ -385,14 +444,62 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/PlaceAnalyticsRequest"
+              type: object
+              required:
+                - deviceToken
+                - platform
+              properties:
+                deviceToken:
+                  type: string
+                platform:
+                  type: string
+                  enum:
+                    - ios
+                    - android
       responses:
-        "200":
-          description: Статистика
+        "201":
+          description: Device token registered
+        "401":
+          description: Unauthorized
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UsageStats"
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /notifications/{notificationId}:
+    patch:
+      tags: [Notifications]
+      summary: Отметить уведомление прочитанным
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: notificationId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Notification marked as read
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   ##################
   # 🛠 ADMIN
@@ -453,7 +560,7 @@ paths:
   /admin/places:
     post:
       tags: [Admin]
-      summary: Добавить место в коворкинг
+      summary: Добавить места в коворкинг
       security: [{ bearerAuth: [] }]
       requestBody:
         required: true
@@ -461,22 +568,20 @@ paths:
           application/json:
             schema:
               type: object
-              required: [coworkingId, label, placeType]
+              required: [coworkingId, places]
               properties:
                 coworkingId:
                   type: string
                   format: uuid
-                label:
-                  type: string
-                placeType:
-                  type: string
+                places:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/CreatePlaceRequest"
+
       responses:
         "201":
           description: Место создано
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Place"
+
   /admin/places/{placeId}/active:
     put:
       tags: [Admin]
@@ -499,6 +604,27 @@ paths:
       responses:
         "202":
           description: Статус места изменён
+
+  /admin/bookings:
+    get:
+      tags: [Admin]
+      summary: Получение всех активных бронирований администратором с фильтром по коворкингу
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: coworkingId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Список бронирований
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Booking"
 
   /admin/bookings/{bookingId}:
     delete:
@@ -646,15 +772,54 @@ paths:
         "202":
           description: Откат запущен
 
-
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-
   schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          description: Error message
+        code:
+          type: integer
+          description: HTTP status code
+      example:
+        message: "Invalid request parameters"
+        code: 400
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          description: Notification type (e.g., booking, alert)
+        title:
+          type: string
+        body:
+          type: string
+        payload:
+          type: object
+          nullable: true
+        isRead:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        readAt:
+          type: string
+          format: date-time
+          nullable: true
+
     RefreshTokenRequest:
       type: object
       required: [refreshToken]
@@ -676,9 +841,11 @@ components:
 
     RegisterRequest:
       type: object
-      required: [email, password, name, role_code]
+      required: [email, first_name, last_name, password, role_code]
       properties:
-        name:
+        first_name:
+          type: string
+        last_name:
           type: string
         email:
           type: string
@@ -736,19 +903,71 @@ components:
         address:
           type: string
 
-    CoworkingAnalyticsRequest:
+    CoworkingHeatmapResponse:
       type: object
       required: [coworkingId]
       properties:
-        coworkingId:
-          type: string
-          format: uuid
+        heatmap:
+          type: array
+          items:
+            $ref: "#/components/schemas/HeatmapCell"
+
+    PlaceHeatmapResponse:
+      type: object
+      required: [placeId]
+      properties:
+        heatmap:
+          type: array
+          items:
+            $ref: "#/components/schemas/HeatmapCell"
+
+    HeatmapCell:
+      type: object
+      properties:
+        weekday:
+          type: integer
+          format: uint8
+          description: День недели (1-7, понедельник=0)
+        hour:
+          type: integer
+          format: uint8
+          description: Час суток (0-23)
+        count:
+          type: integer
+          format: uint64
+          description: Количество бронирований в данную ячейку
+
+    HourlyLoadResponse:
+      type: object
+      properties:
+        load:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Ключ — час (int), значение — количество бронирований
+
+    WeekdayLoadResponse:
+      type: object
+      properties:
+        load:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Ключ — день недели (int), значение — количество бронирований
 
     PlaceAnalyticsRequest:
       type: object
       required: [placeId]
       properties:
         placeId:
+          type: string
+          format: uuid
+
+    CoworkingAnalyticsRequest:
+      type: object
+      required: [coworkingId]
+      properties:
+        coworkingId:
           type: string
           format: uuid
 
@@ -783,6 +1002,8 @@ components:
         userId:
           type: string
           format: uuid
+        user_name:
+          type: string
         place:
           $ref: "#/components/schemas/Place"
         startTime:
@@ -858,16 +1079,6 @@ components:
           type: integer
         layout:
           type: object
-
-    UsageStats:
-      type: object
-      properties:
-        peak_hours:
-          type: array
-          items:
-            type: integer
-        total_bookings:
-          type: integer
 
     UpdateCoworkingRequest:
       type: object

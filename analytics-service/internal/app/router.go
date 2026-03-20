@@ -32,10 +32,10 @@ func (app *App) configureRouter(handler *echo.Echo) {
 	// Public coworking and layout endpoints
 	coworkingGroup := handler.Group("/analytics")
 	{
-		coworkingGroup.GET("/coworking_heatmap", app.GetCoworkingHeatmapHandler().Handle)
-		coworkingGroup.GET("/place_heatmap", app.GetPlaceHeatmapHandler().Handle)
-		coworkingGroup.GET("/hourly", app.GetHourlyLoadedHandler().Handle)
-		coworkingGroup.GET("/weekday", app.GetWeekdayLoadedHandler().Handle)
+		coworkingGroup.GET("/coworking_heatmap/:coworkingId", app.GetCoworkingHeatmapHandler().Handle)
+		coworkingGroup.GET("/place_heatmap/:placeId", app.GetPlaceHeatmapHandler().Handle)
+		coworkingGroup.GET("/hourly/:coworkingId", app.GetHourlyLoadedHandler().Handle)
+		coworkingGroup.GET("/weekday/:coworkingId", app.GetWeekdayLoadedHandler().Handle)
 	}
 
 	handler.GET("/health", func(c echo.Context) error { return c.NoContent(http.StatusOK) })

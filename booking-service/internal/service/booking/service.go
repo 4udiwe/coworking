@@ -588,3 +588,15 @@ func (s *BookingService) RollbackLatestLayoutVersion(ctx context.Context, cowork
 
 	return nil
 }
+
+func (s *BookingService) ListActiveBookingsForAdmin(ctx context.Context, coworkingID uuid.UUID) ([]entity.Booking, error) {
+	logrus.Infof("Listing active admin bookings")
+
+	bookings, err := s.bookingRepo.GetAdminActiveBookings(ctx, coworkingID)
+	if err != nil {
+		logrus.Errorf("Failed to list bookings: %v", err)
+		return nil, ErrCannotFetchBooking
+	}
+
+	return bookings, nil
+}

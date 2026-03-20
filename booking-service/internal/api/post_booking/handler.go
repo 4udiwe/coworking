@@ -31,6 +31,7 @@ func (h *handler) Handle(ctx echo.Context, in Request) error {
 
 	booking := entity.Booking{
 		UserID: claims.UserID,
+		UserName: claims.UserName,
 		Place: entity.Place{
 			ID: in.PlaceID,
 		},

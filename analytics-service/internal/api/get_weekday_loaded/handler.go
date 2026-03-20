@@ -18,7 +18,7 @@ func New(analyticsService AnalyticsService) api.Handler {
 }
 
 type Request struct {
-	CoworkingID uuid.UUID `json:"coworkingId"`
+	CoworkingID uuid.UUID `param:"coworkingId"`
 }
 
 type Response struct {

@@ -14,6 +14,7 @@ type BookingRepository interface {
 	ListByUser(ctx context.Context, userID uuid.UUID) ([]entity.Booking, error)
 	Cancel(ctx context.Context, id uuid.UUID, reason *string) error
 	MarkCompleted(ctx context.Context, id uuid.UUID) error
+	GetAdminActiveBookings(ctx context.Context, coworkingID uuid.UUID) ([]entity.Booking, error)
 }
 
 type PlaceRepository interface {

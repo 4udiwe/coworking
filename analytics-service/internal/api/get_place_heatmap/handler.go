@@ -20,7 +20,7 @@ func New(analyticsService AnalyticsService) api.Handler {
 }
 
 type Request struct {
-	PlaceID uuid.UUID `json:"placeId"`
+	PlaceID uuid.UUID `param:"placeId"`
 }
 
 type Cell struct {

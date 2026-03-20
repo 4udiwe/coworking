@@ -33,6 +33,7 @@ func (r *BookingRepository) Create(
 		Insert("booking").
 		Columns(
 			"user_id",
+			"user_name",
 			"place_id",
 			"start_time",
 			"end_time",
@@ -40,6 +41,7 @@ func (r *BookingRepository) Create(
 		).
 		Values(
 			booking.UserID,
+			booking.UserName,
 			booking.Place.ID,
 			booking.StartTime,
 			booking.EndTime,
@@ -80,6 +82,7 @@ func (r *BookingRepository) GetByID(
 		Select(
 			"b.id",
 			"b.user_id",
+			"b.user_name",
 			"b.place_id",
 			"p.label as place_label",
 			"p.place_type as place_type",
@@ -225,4 +228,55 @@ func (r *BookingRepository) MarkCompleted(
 	}
 
 	return nil
+}
+
+func (r *BookingRepository) GetAdminActiveBookings(
+	ctx context.Context,
+	coworkingID uuid.UUID,
+) ([]entity.Booking, error) {
+
+	query, args, _ := r.Builder.
+		Select(
+			"b.id",
+			"b.user_id",
+			"b.user_name",
+			"b.place_id",
+			"p.label as place_label",
+			"p.place_type as place_type",
+			"p.coworking_id as place_coworking_id",
+			"p.is_active as place_is_active",
+			"b.start_time",
+			"b.end_time",
+			"b.status_id",
+			"bs.name as status_name",
+			"b.cancel_reason",
+			"b.created_at",
+			"b.updated_at",
+			"b.cancelled_at",
+		).
+		From("booking b").
+		Join("place p ON b.place_id = p.id").
+		Join("booking_status bs ON b.status_id = bs.id").
+		Where("p.coworking_id = ?", coworkingID).
+		Where("bs.name = ?", entity.BookingStatusActive).
+		OrderBy("b.start_time DESC").
+		ToSql()
+
+	rows, err := r.GetTxManager(ctx).Query(ctx, query, args...)
+	if err != nil {
+		logrus.WithError(err).Error("failed to list admin active bookings")
+		return nil, err
+	}
+	defer rows.Close()
+
+	raws, err := pgx.CollectRows(rows, pgx.RowToStructByName[rawBookingPlaceStatus])
+
+	if err != nil {
+		logrus.WithError(err).Error("failed to collect booking rows")
+		return nil, err
+	}
+
+	return lo.Map(raws, func(raw rawBookingPlaceStatus, _ int) entity.Booking {
+		return raw.toEntity()
+	}), nil
 }

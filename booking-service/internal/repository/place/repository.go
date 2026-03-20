@@ -8,7 +8,6 @@ import (
 	"github.com/4udiwe/avito-pvz/pkg/postgres"
 	"github.com/4udiwe/cowoking/booking-service/internal/entity"
 	. "github.com/4udiwe/cowoking/booking-service/internal/repository"
-	"github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/samber/lo"
@@ -225,7 +224,7 @@ func (r *PlaceRepository) CheckHasActiveBookings(
 		Select("1").
 		From("booking").
 		Where("place_id = ?", placeID).
-		Where("status_id = ?", squirrel.Expr("SELECT id FROM booking_status WHERE name = ?", entity.BookingStatusActive)).
+		Where("status_id = (SELECT id FROM booking_status WHERE name = ?)", entity.BookingStatusActive).
 		Limit(1).
 		ToSql()
 

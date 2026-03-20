@@ -32,7 +32,7 @@ func (r *UserRepository) Create(
 		Insert("users").
 		Columns("email", "first_name", "last_name", "password_hash").
 		Values(user.Email, user.FirstName, user.LastName, user.PasswordHash).
-		Suffix("RETURNING id, email, password_hash, is_active, created_at, updated_at").
+		Suffix("RETURNING id, first_name, last_name, email, password_hash, is_active, created_at, updated_at").
 		ToSql()
 
 	err := r.GetTxManager(ctx).QueryRow(ctx, query, args...).Scan(

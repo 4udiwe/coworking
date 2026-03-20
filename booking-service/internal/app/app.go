@@ -56,6 +56,7 @@ type App struct {
 	getLayoutVersionsHandler             api.Handler
 	getPlacesByCoworkingHandler          api.Handler
 	getAvailablePlacesByCoworkingHandler api.Handler
+	getAdminActiveBookings               api.Handler
 
 	postBookingHandler        api.Handler
 	postCoworkingHandler      api.Handler

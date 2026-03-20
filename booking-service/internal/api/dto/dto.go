@@ -29,6 +29,7 @@ type Place struct {
 type Booking struct {
 	ID           uuid.UUID  `json:"id"`
 	UserID       uuid.UUID  `json:"userId"`
+	UserName     string     `json:"user_name"`
 	Place        Place      `json:"place"`
 	StartTime    time.Time  `json:"startTime"`
 	EndTime      time.Time  `json:"endTime"`
@@ -97,7 +98,7 @@ type CreatePlaceDTO struct {
 }
 
 type SetPlaceActiveRequest struct {
-	PlaceID uuid.UUID `json:"placeId" validate:"required"`
+	PlaceID uuid.UUID `param:"placeId" validate:"required"`
 	Active  bool      `json:"active"`
 }
 
@@ -109,6 +110,10 @@ type CreateBookingRequest struct {
 
 type GetBookingByIDRequest struct {
 	BookingID uuid.UUID `param:"bookingId" validate:"required"`
+}
+
+type GetAdminActiveBookingsRequest struct {
+	CoworkingID uuid.UUID `query:"coworkingId" validate:"required"`
 }
 
 type CancelBookingRequest struct {

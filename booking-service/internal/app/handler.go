@@ -3,9 +3,10 @@ package app
 import (
 	"github.com/4udiwe/cowoking/booking-service/internal/api"
 	"github.com/4udiwe/cowoking/booking-service/internal/api/delete_booking"
+	"github.com/4udiwe/cowoking/booking-service/internal/api/get_admin_bookings"
+	"github.com/4udiwe/cowoking/booking-service/internal/api/get_available_places_by_coworking"
 	"github.com/4udiwe/cowoking/booking-service/internal/api/get_booking_by_id"
 	"github.com/4udiwe/cowoking/booking-service/internal/api/get_bookings_by_user"
-	"github.com/4udiwe/cowoking/booking-service/internal/api/get_available_places_by_coworking"
 	"github.com/4udiwe/cowoking/booking-service/internal/api/get_coworking_by_id"
 	"github.com/4udiwe/cowoking/booking-service/internal/api/get_coworkings"
 	"github.com/4udiwe/cowoking/booking-service/internal/api/get_layout"
@@ -173,4 +174,12 @@ func (app *App) PutPlaceActiveHandler() api.Handler {
 	}
 	app.putPlaceActiveHandler = put_place_active.New(app.BookingService())
 	return app.putPlaceActiveHandler
+}
+
+func (app *App) GetActiveAdminBookingsHandler() api.Handler {
+	if app.getAdminActiveBookings != nil {
+		return app.getAdminActiveBookings
+	}
+	app.getAdminActiveBookings = get_admin_bookings.New(app.BookingService())
+	return app.getAdminActiveBookings
 }

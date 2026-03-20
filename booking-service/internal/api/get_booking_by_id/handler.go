@@ -31,8 +31,9 @@ func (h *handler) Handle(ctx echo.Context, in Request) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	return ctx.JSON(http.StatusOK, dto.Booking{
-		ID:     b.ID,
-		UserID: b.UserID,
+		ID:       b.ID,
+		UserID:   b.UserID,
+		UserName: b.UserName,
 		Place: dto.Place{
 			ID:          b.Place.ID,
 			CoworkingID: b.Place.Coworking.ID,

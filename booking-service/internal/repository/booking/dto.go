@@ -10,6 +10,7 @@ import (
 type rawBookingPlaceStatus struct {
 	ID               uuid.UUID  `db:"id"`
 	UserID           uuid.UUID  `db:"user_id"`
+	UserName         string     `db:"user_name"`
 	PlaceID          uuid.UUID  `db:"place_id"`
 	PlaceLabel       string     `db:"place_label"`
 	PlaceType        string     `db:"place_type"`
@@ -27,8 +28,9 @@ type rawBookingPlaceStatus struct {
 
 func (r *rawBookingPlaceStatus) toEntity() entity.Booking {
 	return entity.Booking{
-		ID:     r.ID,
-		UserID: r.UserID,
+		ID:       r.ID,
+		UserID:   r.UserID,
+		UserName: r.UserName,
 		Place: entity.Place{
 			ID:        r.PlaceID,
 			Label:     r.PlaceLabel,

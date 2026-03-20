@@ -59,6 +59,7 @@ func (app *App) configureRouter(handler *echo.Echo) {
 	{
 		adminCoworkingGroup := adminGroup.Group("/coworkings")
 		{
+
 			adminCoworkingGroup.POST("", app.PostCoworkingHandler().Handle)
 			adminCoworkingGroup.PUT("/:coworkingId", app.PutCoworkingHandler().Handle)
 			adminCoworkingGroup.PUT("/:coworkingId/activate", app.PutCoworkingActiveHandler().Handle)
@@ -76,6 +77,7 @@ func (app *App) configureRouter(handler *echo.Echo) {
 
 		adminBookingsGroup := adminGroup.Group("/bookings")
 		{
+			adminBookingsGroup.GET("", app.GetActiveAdminBookingsHandler().Handle)
 			adminBookingsGroup.DELETE("/:bookingId", app.DeleteBookingHandler().Handle)
 		}
 	}
