@@ -31,6 +31,7 @@ type rawCoworkingLayout struct {
 	CoworkingID uuid.UUID `db:"coworking_id"`
 	Layout      []byte    `db:"layout"`
 	Version     int       `db:"version"`
+	IsActive    bool      `db:"is_active"`
 	CreatedAt   time.Time `db:"created_at"`
 }
 
@@ -40,6 +41,7 @@ func (r *rawCoworkingLayout) toEntity() entity.CoworkingLayout {
 		CoworkingID: r.CoworkingID,
 		Layout:      r.Layout,
 		Version:     r.Version,
+		IsActive:    r.IsActive,
 		CreatedAt:   r.CreatedAt,
 	}
 }

@@ -21,6 +21,7 @@ type CoworkingLayout struct {
 	CoworkingID uuid.UUID
 	Layout      json.RawMessage
 	Version     int
+	IsActive    bool
 	CreatedAt   time.Time
 }
 

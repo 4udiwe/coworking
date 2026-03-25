@@ -21,6 +21,8 @@ var (
 	ErrInvalidDuration     = errors.New("invalid booking duration")
 	ErrInvalidStatus       = errors.New("invalid booking status")
 
+	ErrNoActiveLayout = errors.New("no active layout for coworking")
+
 	ErrPlaceNotFound = errors.New("place not found")
 
 	ErrCoworkingNotFound = errors.New("coworking not found")

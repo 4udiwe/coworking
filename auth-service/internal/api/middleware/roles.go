@@ -6,6 +6,7 @@ import (
 
 	"github.com/4udiwe/coworking/auth-service/internal/entity"
 	"github.com/labstack/echo/v4"
+	"github.com/sirupsen/logrus"
 )
 
 func RoleMiddleware(allowedRoles ...entity.RoleCode) echo.MiddlewareFunc {
@@ -13,6 +14,7 @@ func RoleMiddleware(allowedRoles ...entity.RoleCode) echo.MiddlewareFunc {
 		return func(c echo.Context) error {
 			claims, err := GetUserFromContext(c)
 			if err != nil {
+				logrus.Errorf("Role middleware: get user from context error:%v", err)
 				return echo.NewHTTPError(http.StatusUnauthorized, "Unauthorized")
 			}
 

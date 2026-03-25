@@ -2,11 +2,15 @@ package user_repository
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/4udiwe/avito-pvz/pkg/postgres"
 	"github.com/4udiwe/coworking/auth-service/internal/entity"
+	"github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -258,4 +262,184 @@ func (r *UserRepository) GetByID(
 	}
 
 	return user, nil
+}
+
+func (r *UserRepository) GetUsers(
+	ctx context.Context,
+	page, pageSize int,
+	searchQuery, filterRole, sortField *string,
+	filterIsActive *bool,
+) ([]entity.User, int64, error) {
+
+	logrus.WithFields(logrus.Fields{
+		"page":           page,
+		"pageSize":       pageSize,
+		"searchQuery":    searchQuery,
+		"filterRole":     filterRole,
+		"sortField":      sortField,
+		"filterIsActive": filterIsActive,
+	}).Info("Fetching users")
+
+	builder := r.Builder.
+		Select(
+			"u.id",
+			"u.first_name",
+			"u.last_name",
+			"u.email",
+			"u.password_hash",
+			"u.is_active",
+			"u.created_at",
+			"u.updated_at",
+
+			// roles aggregation
+			`COALESCE(
+				json_agg(
+					DISTINCT jsonb_build_object(
+						'id', r.id,
+						'code', r.code,
+						'name', r.name,
+						'created_at', r.created_at
+					)
+				) FILTER (WHERE r.id IS NOT NULL),
+				'[]'
+			) AS roles`,
+
+			// total count
+			"COUNT(*) OVER() AS total",
+		).
+		From("users u").
+		LeftJoin("user_roles ur ON ur.user_id = u.id").
+		LeftJoin("roles r ON r.id = ur.role_id")
+
+	// --- filters ---
+	if searchQuery != nil && *searchQuery != "" {
+		builder = builder.Where(squirrel.Or{
+			squirrel.ILike{"u.email": "%" + *searchQuery + "%"},
+			squirrel.ILike{"u.first_name": "%" + *searchQuery + "%"},
+			squirrel.ILike{"u.last_name": "%" + *searchQuery + "%"},
+		})
+	}
+
+	if filterRole != nil && *filterRole != "" {
+		builder = builder.Where(squirrel.Eq{"r.code": *filterRole})
+	}
+
+	if filterIsActive != nil {
+		builder = builder.Where(squirrel.Eq{"u.is_active": *filterIsActive})
+	}
+
+	// --- grouping ---
+	builder = builder.GroupBy("u.id")
+
+	// --- sorting ---
+	allowedSort := map[string]string{
+		"created_at": "u.created_at",
+		"email":      "u.email",
+		"first_name": "u.first_name",
+		"last_name":  "u.last_name",
+	}
+
+	orderBy := "u.created_at DESC"
+	if sortField != nil {
+		if col, ok := allowedSort[*sortField]; ok {
+			orderBy = col + " DESC"
+		}
+	}
+
+	builder = builder.OrderBy(orderBy)
+
+	// --- pagination ---
+	offset := (page - 1) * pageSize
+	builder = builder.Offset(uint64(offset)).Limit(uint64(pageSize))
+
+	// --- build SQL ---
+	query, args, err := builder.ToSql()
+	if err != nil {
+		return nil, 0, fmt.Errorf("build query: %w", err)
+	}
+
+	rows, err := r.GetTxManager(ctx).Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("query users: %w", err)
+	}
+	defer rows.Close()
+
+	var users []entity.User
+	var total int64
+
+	var firstName sql.NullString
+	var lastName sql.NullString
+
+	for rows.Next() {
+		var u entity.User
+		var rolesJSON []byte
+
+		if err := rows.Scan(
+			&u.ID,
+			&firstName,
+			&lastName,
+			&u.Email,
+			&u.PasswordHash,
+			&u.IsActive,
+			&u.CreatedAt,
+			&u.UpdatedAt,
+			&rolesJSON,
+			&total,
+		); err != nil {
+			return nil, 0, err
+		}
+
+		if err := json.Unmarshal(rolesJSON, &u.Roles); err != nil {
+			return nil, 0, err
+		}
+
+		if firstName.Valid {
+			u.FirstName = firstName.String
+		}
+
+		if lastName.Valid {
+			u.LastName = lastName.String
+		}
+
+		users = append(users, u)
+	}
+
+	return users, total, nil
+}
+
+func (r *UserRepository) SetActive(ctx context.Context, userID uuid.UUID, active bool) error {
+	query, args, _ := r.Builder.
+		Update("users").
+		Set("is_active", active).
+		Set("updated_at", time.Now()).
+		Where("id = ?", userID).
+		ToSql()
+	cmd, err := r.GetTxManager(ctx).Exec(ctx, query, args...,
+	)
+	if err != nil {
+		logrus.WithError(err).WithField("user_id", userID).Error("SetActive: query failed")
+		return err
+	}
+	if cmd.RowsAffected() == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
+func (r *UserRepository) ClearRoles(ctx context.Context, userID uuid.UUID) error {
+	const sql = `DELETE FROM user_roles WHERE user_id = $1`
+	query, args, _ := r.Builder.
+		Delete("user_roles").
+		Where("user_id = ?", userID).
+		ToSql()
+
+	cmd, err := r.GetTxManager(ctx).Exec(ctx, query, args...)
+	if err != nil {
+		logrus.WithError(err).WithField("user_id", userID).Error(": query failed")
+		return err
+	}
+	if cmd.RowsAffected() == 0 {
+		return ErrUserNotFound
+	}
+	return nil
 }

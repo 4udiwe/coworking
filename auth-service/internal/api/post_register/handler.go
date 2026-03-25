@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	api "github.com/4udiwe/coworking/auth-service/internal/api"
-	user_service "github.com/4udiwe/coworking/auth-service/internal/service"
+	auth_service "github.com/4udiwe/coworking/auth-service/internal/service/auth"
 	"github.com/4udiwe/coworking/auth-service/pkg/decorator"
 	"github.com/labstack/echo/v4"
 )
@@ -36,14 +36,14 @@ func (h *handler) Handle(ctx echo.Context, in Request) error {
 
 	if err != nil {
 		// Validation errors
-		if errors.Is(err, user_service.ErrEmptyEmail) ||
-			errors.Is(err, user_service.ErrEmptyPassword) ||
-			errors.Is(err, user_service.ErrEmptyRoleCode) ||
-			errors.Is(err, user_service.ErrRoleNotFound) ||
-			errors.Is(err, user_service.ErrUserAlreadyExists) {
+		if errors.Is(err, auth_service.ErrEmptyEmail) ||
+			errors.Is(err, auth_service.ErrEmptyPassword) ||
+			errors.Is(err, auth_service.ErrEmptyRoleCode) ||
+			errors.Is(err, auth_service.ErrRoleNotFound) ||
+			errors.Is(err, auth_service.ErrUserAlreadyExists) {
 			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 		}
-		if errors.Is(err, user_service.ErrUserAlreadyExists) {
+		if errors.Is(err, auth_service.ErrUserAlreadyExists) {
 			return echo.NewHTTPError(http.StatusConflict, err.Error())
 		}
 		// Any other error is internal server error

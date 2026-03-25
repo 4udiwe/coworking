@@ -7,7 +7,7 @@ import (
 	api "github.com/4udiwe/coworking/auth-service/internal/api"
 	"github.com/4udiwe/coworking/auth-service/internal/api/middleware"
 	"github.com/4udiwe/coworking/auth-service/internal/entity"
-	user_service "github.com/4udiwe/coworking/auth-service/internal/service"
+	auth_service "github.com/4udiwe/coworking/auth-service/internal/service/auth"
 	"github.com/4udiwe/coworking/auth-service/pkg/decorator"
 	"github.com/labstack/echo/v4"
 	"github.com/samber/lo"
@@ -49,12 +49,12 @@ func (h *handler) Handle(ctx echo.Context, in Request) error {
 
 	if err != nil {
 		// Validation errors
-		if errors.Is(err, user_service.ErrEmptyUserID) {
+		if errors.Is(err, auth_service.ErrEmptyUserID) {
 			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 		}
 		// Authentication errors
-		if errors.Is(err, user_service.ErrUserInactive) ||
-			errors.Is(err, user_service.ErrUserNotFound) {
+		if errors.Is(err, auth_service.ErrUserInactive) ||
+			errors.Is(err, auth_service.ErrUserNotFound) {
 			return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 		}
 		// Any other error is internal server error

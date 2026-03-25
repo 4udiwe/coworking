@@ -1,4 +1,4 @@
-package user_service
+package auth_service
 
 import (
 	"context"
@@ -365,21 +365,3 @@ func (s *Service) RevokeSession(
 	return nil
 }
 
-func (s *Service) GetUserInfo(
-	ctx context.Context,
-	userID uuid.UUID,
-) (entity.User, error) {
-	logrus.Info("GetUserInfo attempt")
-
-	if userID == uuid.Nil {
-		return entity.User{}, ErrEmptyUserID
-	}
-
-	logrus.WithField("user_id", userID).Info("Fetching user by ID")
-	user, err := s.userRepo.GetByID(ctx, userID)
-	if err != nil {
-		return entity.User{}, ErrUserNotFound
-	}
-
-	return user, nil
-}

@@ -34,10 +34,12 @@ func (h *handler) Handle(ctx echo.Context, in Request) error {
 	return ctx.JSON(http.StatusOK, Response{
 		Coworkings: lo.Map(coworkings, func(c entity.Coworking, _ int) dto.Coworking {
 			return dto.Coworking{
-				ID:       c.ID,
-				Name:     c.Name,
-				Address:  c.Address,
-				IsActive: c.IsActive,
+				ID:        c.ID,
+				Name:      c.Name,
+				Address:   c.Address,
+				IsActive:  c.IsActive,
+				CreatedAt: c.CreatedAt,
+				UpdatedAt: c.UpdatedAt,
 			}
 		}),
 	})

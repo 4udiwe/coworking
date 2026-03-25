@@ -1,4 +1,4 @@
-package user_service
+package auth_service
 
 import "errors"
 

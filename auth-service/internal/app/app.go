@@ -15,7 +15,8 @@ import (
 	"github.com/4udiwe/coworking/auth-service/internal/hasher"
 	auth_repository "github.com/4udiwe/coworking/auth-service/internal/repository/auth"
 	user_repository "github.com/4udiwe/coworking/auth-service/internal/repository/user"
-	user_service "github.com/4udiwe/coworking/auth-service/internal/service"
+	auth_service "github.com/4udiwe/coworking/auth-service/internal/service/auth"
+	user_service "github.com/4udiwe/coworking/auth-service/internal/service/user"
 	"github.com/4udiwe/coworking/auth-service/pkg/jwt_validator"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/gommon/log"
@@ -36,6 +37,7 @@ type App struct {
 	userRepo *user_repository.UserRepository
 
 	// Services
+	authService *auth_service.Service
 	userService *user_service.Service
 
 	// Handlers
@@ -48,6 +50,12 @@ type App struct {
 	getMeHandler             api.Handler
 	getAllSessionsHandler    api.Handler
 	getActiveSessionsHandler api.Handler
+	getUserByIdHandler       api.Handler
+	getUsersHandler          api.Handler
+
+	patchUserSetActiveHandler api.Handler
+
+	putUserRolesHanlder api.Handler
 
 	// Auth
 	auth         *auth.Auth

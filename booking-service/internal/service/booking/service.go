@@ -191,15 +191,18 @@ func (s *BookingService) CreateLayoutVersion(ctx context.Context, layout entity.
 	return nil
 }
 
-func (s *BookingService) GetLatestLayout(ctx context.Context, coworkingID uuid.UUID) (entity.CoworkingLayout, error) {
-	logrus.Infof("Getting latest layout for coworking ID: %s", coworkingID)
+func (s *BookingService) GetActiveLayout(ctx context.Context, coworkingID uuid.UUID) (entity.CoworkingLayout, error) {
+	logrus.Infof("Getting active layout for coworking ID: %s", coworkingID)
 
-	layout, err := s.coworkingRepo.GetLatestLayout(ctx, coworkingID)
+	layout, err := s.coworkingRepo.GetActiveLayout(ctx, coworkingID)
 	if err != nil {
 		if errors.Is(err, repository.ErrCoworkingNotFound) {
 			return entity.CoworkingLayout{}, ErrCoworkingNotFound
 		}
-		logrus.Errorf("Failed to get latest layout: %v", err)
+		if errors.Is(err, repository.ErrNoActiveLayout) {
+			return entity.CoworkingLayout{}, ErrNoActiveLayout
+		}
+		logrus.Errorf("Failed to get active layout: %v", err)
 		return entity.CoworkingLayout{}, ErrCannotFetchLayout
 	}
 
@@ -234,6 +237,42 @@ func (s *BookingService) ListLayoutVersions(ctx context.Context, coworkingID uui
 	}
 
 	return layoutVersions, nil
+}
+
+func (s *BookingService) SetLayoutVersionToActive(ctx context.Context, coworkingID uuid.UUID, layoutVersion int) error {
+	logrus.Infof("Setting layout version V%d to active for coworking ID: %s", layoutVersion, coworkingID)
+
+	return s.txManager.WithinTransaction(ctx, func(ctx context.Context) error {
+		err := s.coworkingRepo.DisableAllLayoutsByCoworking(ctx, coworkingID)
+		if err != nil {
+			logrus.Errorf("Failed to disable all layout versions: %v", err)
+			return ErrCannotSetActiveLayout
+		}
+
+		err = s.coworkingRepo.SetLayoutActiveByVersion(ctx, coworkingID, layoutVersion)
+		if err != nil {
+			if errors.Is(err, repository.ErrLayoutNotFound) {
+				return ErrLayoutNotFound
+			}
+			logrus.Errorf("Failed to set layout version active: %v", err)
+			return ErrCannotSetActiveLayout
+		}
+		return nil
+	})
+}
+
+func (s *BookingService) DeleteLayoutVersion(ctx context.Context, coworkingID uuid.UUID, layoutVersion int) error {
+	logrus.Infof("Deleting layout version V%d for coworking ID: %s", layoutVersion, coworkingID)
+
+	err := s.coworkingRepo.DeleteLayoutVersion(ctx, coworkingID, layoutVersion)
+	if err != nil {
+		if errors.Is(err, repository.ErrLayoutNotFound) {
+			return ErrLayoutNotFound
+		}
+		logrus.Errorf("Failed to delete layout version: %v", err)
+		return ErrCannotDeleteLayout
+	}
+	return nil
 }
 
 func (s *BookingService) CreatePlacesBatch(ctx context.Context, places []entity.Place) error {
@@ -538,55 +577,32 @@ func (s *BookingService) ListBookingsByUser(ctx context.Context, userID uuid.UUI
 	return bookings, nil
 }
 
-func (s *BookingService) SetCoworkingActive(ctx context.Context, coworkingID uuid.UUID) error {
-	logrus.Infof("Setting coworking ID %s active status to %t", coworkingID, true)
+func (s *BookingService) SetCoworkingActive(ctx context.Context, coworkingID uuid.UUID, isActive bool) error {
+	logrus.Infof("Setting coworking ID %s active status to %t", coworkingID, isActive)
+	return s.txManager.WithinTransaction(ctx, func(ctx context.Context) error {
+		// При деактивации проверка на активные бронирования
+		if isActive == false {
+			hasActiveBookings, err := s.coworkingRepo.CheckHasActiveBookings(ctx, coworkingID)
+			if err != nil {
+				logrus.Errorf("Failed to check if coworking has active bookings: %v", err)
+				return ErrCannotUpdateCoworking
+			}
+			if hasActiveBookings {
+				return ErrCoworkingHasActiveBookings
+			}
+		}
 
-	err := s.coworkingRepo.SetActive(ctx, coworkingID, true)
-	if err != nil {
+		err := s.coworkingRepo.SetActive(ctx, coworkingID, isActive)
 		if errors.Is(err, repository.ErrCoworkingNotFound) {
 			return ErrCoworkingNotFound
 		}
-		logrus.Errorf("Failed to set coworking active status: %v", err)
-		return ErrCannotUpdateCoworking
-	}
-
-	return nil
-}
-
-func (s *BookingService) SetCoworkingInactive(ctx context.Context, coworkingID uuid.UUID) error {
-	logrus.Infof("Setting coworking ID %s active status to %t", coworkingID, false)
-
-	return s.txManager.WithinTransaction(ctx, func(ctx context.Context) error {
-		hasActiveBookings, err := s.coworkingRepo.CheckHasActiveBookings(ctx, coworkingID)
-		if err != nil {
-			return err
-		}
-		if hasActiveBookings {
-			return ErrCoworkingHasActiveBookings
-		}
-
-		err = s.coworkingRepo.SetActive(ctx, coworkingID, false)
+		logrus.Errorf("Failed to set coworking status: %v", err)
 		if err != nil {
 			return ErrCannotUpdateCoworking
 		}
 
 		return nil
 	})
-}
-
-func (s *BookingService) RollbackLatestLayoutVersion(ctx context.Context, coworkingID uuid.UUID) error {
-	logrus.Infof("Rolling back latest layout version for coworking ID: %s", coworkingID)
-
-	err := s.coworkingRepo.RollbackLatestLayoutVersion(ctx, coworkingID)
-	if err != nil {
-		if errors.Is(err, repository.ErrCoworkingNotFound) {
-			return ErrCoworkingNotFound
-		}
-		logrus.Errorf("Failed to rollback latest layout version: %v", err)
-		return ErrCannotUpdateCoworking
-	}
-
-	return nil
 }
 
 func (s *BookingService) ListActiveBookingsForAdmin(ctx context.Context, coworkingID uuid.UUID) ([]entity.Booking, error) {

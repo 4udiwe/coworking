@@ -10,10 +10,12 @@ import (
 // Base DTOs for responses
 
 type Coworking struct {
-	ID       uuid.UUID `json:"id"`
-	Name     string    `json:"name"`
-	Address  string    `json:"address"`
-	IsActive bool      `json:"isActive"`
+	ID        uuid.UUID `json:"id"`
+	Name      string    `json:"name"`
+	Address   string    `json:"address"`
+	IsActive  bool      `json:"isActive"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 type Place struct {
@@ -29,7 +31,7 @@ type Place struct {
 type Booking struct {
 	ID           uuid.UUID  `json:"id"`
 	UserID       uuid.UUID  `json:"userId"`
-	UserName     string     `json:"user_name"`
+	UserName     string     `json:"userName"`
 	Place        Place      `json:"place"`
 	StartTime    time.Time  `json:"startTime"`
 	EndTime      time.Time  `json:"endTime"`
@@ -67,7 +69,7 @@ type CreateCoworkingRequest struct {
 }
 
 type UpdateCoworkingRequest struct {
-	ID       uuid.UUID `json:"id" validate:"required"`
+	ID       uuid.UUID `param:"coworkingId" validate:"required"`
 	Name     string    `json:"name" validate:"required,min=2,max=200"`
 	Address  string    `json:"address" validate:"required,min=5,max=500"`
 	IsActive bool      `json:"isActive"`
@@ -99,7 +101,7 @@ type CreatePlaceDTO struct {
 
 type SetPlaceActiveRequest struct {
 	PlaceID uuid.UUID `param:"placeId" validate:"required"`
-	Active  bool      `json:"active"`
+	Active  *bool     `json:"active"`
 }
 
 type CreateBookingRequest struct {
@@ -140,10 +142,17 @@ type CreateLayoutRequest struct {
 	Layout      json.RawMessage `json:"layout" validate:"required"`
 }
 
-type SetCoworkingActiveRequest struct {
+type DeleteLayoutRequest struct {
 	CoworkingID uuid.UUID `param:"coworkingId" validate:"required"`
+	Version     int       `param:"version" validate:"required,gt=0"`
 }
 
-type SetCoworkingInactiveRequest struct {
+type SetActiveLayoutRequest struct {
 	CoworkingID uuid.UUID `param:"coworkingId" validate:"required"`
+	Version     int       `param:"version" validate:"required,gt=0"`
+}
+
+type SetCoworkingActiveRequest struct {
+	CoworkingID uuid.UUID `param:"coworkingId" validate:"required"`
+	Active      *bool     `json:"active" validate:"required"`
 }

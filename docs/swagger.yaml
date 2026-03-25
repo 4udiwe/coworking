@@ -227,6 +227,23 @@ paths:
                 items:
                   $ref: "#/components/schemas/Place"
 
+  /coworkings/{coworkingId}/layouts:
+    get:
+      tags: [Coworkings]
+      summary: Получить актуальную схему размещения коворкинга
+      parameters:
+        - in: path
+          name: coworkingId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Схема размещения
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Layout"
+
   ##################
   # 📅 BOOKINGS
   ##################
@@ -543,17 +560,21 @@ paths:
         "200":
           description: Коворкинг обновлён
 
-  /admin/coworkings/{coworkingId}/deactivate:
-    put:
+  /admin/coworkings/{coworkingId}/set_active:
+    patch:
       tags: [Admin]
-      summary: Удалить (деактивировать) коворкинг
-      description: Физически не удаляется, помечается как неактивный
+      summary: Установить статус активности коворкина
+      description: Пометить коворкинг как активный или неактивный
       security: [{ bearerAuth: [] }]
       parameters:
         - in: path
           name: coworkingId
           required: true
           schema: { type: string, format: uuid }
+        - in: query
+          name: active
+          required: true
+          schema: { type: boolean }
       responses:
         "204":
           description: Коворкинг деактивирован
@@ -582,8 +603,8 @@ paths:
         "201":
           description: Место создано
 
-  /admin/places/{placeId}/active:
-    put:
+  /admin/places/{placeId}/set_active:
+    patch:
       tags: [Admin]
       summary: Удалить (деактивировать) место
       security: [{ bearerAuth: [] }]
@@ -592,15 +613,10 @@ paths:
           name: placeId
           required: true
           schema: { type: string, format: uuid }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                active:
-                  type: boolean
+        - in: query
+          name: active
+          required: true
+          schema: { type: boolean }
       responses:
         "202":
           description: Статус места изменён
@@ -648,26 +664,10 @@ paths:
       responses:
         "202":
           description: Бронирование отменено администратором
-  /coworkings/{coworkingId}/layout:
-    get:
-      tags: [Coworkings]
-      summary: Получить актуальную схему размещения коворкинга
-      parameters:
-        - in: path
-          name: coworkingId
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        "200":
-          description: Схема размещения
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Layout"
 
-  /coworkings/{coworkingId}/layouts:
+  /admin/coworkings/{coworkingId}/layouts:
     get:
-      tags: [Coworkings]
+      tags: [Layout]
       summary: Получить список версий схемы размещения
       parameters:
         - in: path
@@ -686,10 +686,28 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/LayoutVersion"
+    post:
+      tags: [Layout]
+      summary: Создать новую версию схемы размещения
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: coworkingId
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLayoutRequest"
+      responses:
+        "201":
+          description: Версия схемы создана
 
-  /coworkings/{coworkingId}/layouts/{version}:
+  /admin/coworkings/{coworkingId}/layout/{version}:
     get:
-      tags: [Coworkings]
+      tags: [Layout]
       summary: Получить схему размещения по версии
       parameters:
         - in: path
@@ -707,10 +725,185 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Layout"
+    delete:
+      tags: [Layout]
+      summary: Удалить версию схемы размещения
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: coworkingId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: version
+          required: true
+          schema: { type: integer }
+      responses:
+        "202":
+          description: Версия удалена
+    patch:
+      tags: [Layout]
+      summary: Установить версию схемы размещения как активную
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: coworkingId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: version
+          required: true
+          schema: { type: integer }
+      responses:
+        "202":
+          description: Активная версия установлена
+
+  /admin/users:
+    get:
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      summary: Получить пользователей (с поиском и пагинацией)
+      description: |
+        Возвращает список пользователей с возможностью:
+        - поиска по email / имени
+        - фильтрации
+        - пагинации
+      parameters:
+        - name: search
+          in: query
+          required: false
+          description: Поиск по email, имени или фамилии
+          schema:
+            type: string
+            example: ivan
+
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+
+        - name: role
+          in: query
+          required: false
+          description: Фильтр по роли
+          schema:
+            type: string
+            example: admin
+
+        - name: isActive
+          in: query
+          required: false
+          schema:
+            type: boolean
+
+        - name: sort
+          in: query
+          required: false
+          description: Сортировка (поле,направление)
+          schema:
+            type: string
+            example: createdAt,desc
+
+      responses:
+        200:
+          description: Список пользователей
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedUsersResponse"
+
+  /admin/users/{userId}:
+    get:
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      summary: Получить пользователя по ID
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        200:
+          description: Пользователь найден
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        404:
+          description: Пользователь не найден
+
+  /admin/users/{userId}/roles:
+    put:
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      summary: Обновить роли пользователя
+      description: Полностью заменяет роли пользователя
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role_codes]
+              properties:
+                roles:
+                  type: array
+                  items:
+                    type: string
+                    example: admin
+      responses:
+        200:
+          description: Роли успешно обновлены
+        400:
+          description: Некорректные данные
+        404:
+          description: Пользователь не найден
+
+  /admin/users/{userId}/set_active:
+    patch:
+      tags: [Admin]
+      security: [{ bearerAuth: [] }]
+      summary: Активировать/деактивировать пользователя
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [roles]
+              properties:
+                active:
+                  type: boolean
+      responses:
+        200:
+          description: Пользователь активирован/деактивирован
 
   /coworkings/{coworkingId}/available-places:
     get:
       tags: [Places]
+      security: [{ bearerAuth: [] }]
       summary: Получить свободные места в коворкинге за интервал
       parameters:
         - in: path
@@ -738,40 +931,6 @@ paths:
                     items:
                       $ref: "#/components/schemas/Place"
 
-  /admin/coworkings/{coworkingId}/layouts:
-    post:
-      tags: [Admin]
-      summary: Создать новую версию схемы размещения
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - in: path
-          name: coworkingId
-          required: true
-          schema: { type: string, format: uuid }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateLayoutRequest"
-      responses:
-        "201":
-          description: Версия схемы создана
-
-  /admin/coworkings/{coworkingId}/layouts/rollback:
-    post:
-      tags: [Admin]
-      summary: Откатить последнюю версию схемы размещения
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - in: path
-          name: coworkingId
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        "202":
-          description: Откат запущен
-
 components:
   securitySchemes:
     bearerAuth:
@@ -779,6 +938,23 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    PaginatedUsersResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+        last:
+          type: boolean
     ErrorResponse:
       type: object
       properties:

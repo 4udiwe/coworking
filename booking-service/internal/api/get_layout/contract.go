@@ -8,5 +8,5 @@ import (
 )
 
 type BookingService interface {
-	GetLatestLayout(ctx context.Context, coworkingID uuid.UUID) (entity.CoworkingLayout, error)
+	GetActiveLayout(ctx context.Context, coworkingID uuid.UUID) (entity.CoworkingLayout, error)
 }

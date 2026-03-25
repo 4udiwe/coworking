@@ -2,6 +2,8 @@ package coworking_repository
 
 import (
 	"context"
+	"errors"
+	"time"
 
 	"github.com/4udiwe/avito-pvz/pkg/postgres"
 	"github.com/4udiwe/cowoking/booking-service/internal/entity"
@@ -91,6 +93,7 @@ func (r *CoworkingRepository) Update(ctx context.Context, coworking entity.Cowor
 		Set("name", coworking.Name).
 		Set("address", coworking.Address).
 		Set("is_active", coworking.IsActive).
+		Set("updated_at", time.Now()).
 		Where(squirrel.Eq{"id": coworking.ID}).
 		ToSql()
 
@@ -171,31 +174,35 @@ func (r *CoworkingRepository) CreateLayoutVersion(ctx context.Context, layout en
 	return nil
 }
 
-func (r *CoworkingRepository) GetLatestLayout(ctx context.Context, coworkingID uuid.UUID) (entity.CoworkingLayout, error) {
+func (r *CoworkingRepository) GetActiveLayout(ctx context.Context, coworkingID uuid.UUID) (entity.CoworkingLayout, error) {
 	query, args, _ := r.Builder.
 		Select(
 			"id",
 			"coworking_id",
 			"layout",
 			"version",
+			"is_active",
 			"created_at",
 		).
 		From("coworking_layout").
-		Where(squirrel.Eq{"coworking_id": coworkingID}).
-		OrderBy("version DESC").
+		Where("coworking_id = ?", coworkingID).
+		Where("is_active = ?", true).
 		Limit(1).
 		ToSql()
 
 	row, err := r.GetTxManager(ctx).Query(ctx, query, args...)
 	if err != nil {
 		mapped := MapPgError(err)
-		logrus.WithField("coworking_id", coworkingID.String()).Error("failed to get latest layout: ", mapped)
+		logrus.WithField("coworking_id", coworkingID.String()).Error("failed to get active layout: ", mapped)
 		return entity.CoworkingLayout{}, mapped
 	}
 	defer row.Close()
 
 	rawLayout, err := pgx.CollectExactlyOneRow(row, pgx.RowToStructByName[rawCoworkingLayout])
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return entity.CoworkingLayout{}, ErrNoActiveLayout
+		}
 		mapped := MapPgError(err)
 		logrus.WithField("coworking_id", coworkingID.String()).Error("failed to collect layout row: ", mapped)
 		return entity.CoworkingLayout{}, mapped
@@ -215,6 +222,7 @@ func (r *CoworkingRepository) GetLayoutByVersion(
 			"coworking_id",
 			"layout",
 			"version",
+			"is_active",
 			"created_at",
 		).
 		From("coworking_layout").
@@ -285,6 +293,7 @@ func (r *CoworkingRepository) SetActive(ctx context.Context, id uuid.UUID, activ
 	query, args, _ := r.Builder.
 		Update("coworking").
 		Set("is_active", active).
+		Set("updated_at", time.Now()).
 		Where(squirrel.Eq{"id": id}).
 		ToSql()
 
@@ -302,23 +311,68 @@ func (r *CoworkingRepository) SetActive(ctx context.Context, id uuid.UUID, activ
 	return nil
 }
 
-func (r *CoworkingRepository) RollbackLatestLayoutVersion(ctx context.Context, coworkingID uuid.UUID) error {
-	logrus.WithField("coworking_id", coworkingID.String()).Info("rolling back latest layout version")
+func (r *CoworkingRepository) DeleteLayoutVersion(ctx context.Context, coworkingID uuid.UUID, layoutVersion int) error {
+	logrus.WithField("coworking_id", coworkingID.String()).Info("deleting layout version")
 
 	query, args, _ := r.Builder.
 		Delete("coworking_layout").
-		Where("id = (SELECT id FROM coworking_layout WHERE coworking_id = ? ORDER BY version DESC LIMIT 1)", coworkingID).
+		Where("coworking_id = ?", coworkingID).
+		Where("version = ?", layoutVersion).
 		ToSql()
 
 	cmdTag, err := r.GetTxManager(ctx).Exec(ctx, query, args...)
 	if err != nil {
 		mapped := MapPgError(err)
-		logrus.WithField("coworking_id", coworkingID.String()).Error("failed to rollback latest layout version: ", mapped)
+		logrus.WithField("coworking_id", coworkingID.String()).Error("failed to delete layout version: ", mapped)
 		return mapped
 	}
 
 	if cmdTag.RowsAffected() == 0 {
-		logrus.WithField("coworking_id", coworkingID.String()).Warn("no layout version rolled back")
+		logrus.WithField("coworking_id", coworkingID.String()).Warn("no layout version deleted")
+		return ErrLayoutNotFound
+	}
+
+	return nil
+}
+
+func (r *CoworkingRepository) DisableAllLayoutsByCoworking(ctx context.Context, coworkingID uuid.UUID) error {
+	logrus.WithField("coworking_id", coworkingID.String()).Info("setting all layouts to inactive")
+
+	query, args, _ := r.Builder.
+		Update("coworking_layout").
+		Set("is_active", false).
+		Where("coworking_id = ?", coworkingID).
+		ToSql()
+
+	_, err := r.GetTxManager(ctx).Exec(ctx, query, args...)
+	if err != nil {
+		mapped := MapPgError(err)
+		logrus.WithField("coworking_id", coworkingID.String()).Error("failed to disable layouts: ", mapped)
+		return mapped
+	}
+
+	return nil
+}
+
+func (r *CoworkingRepository) SetLayoutActiveByVersion(ctx context.Context, coworkingID uuid.UUID, layoutVersion int) error {
+	logrus.WithField("coworking_id", coworkingID.String()).Infof("setting layout V%d to active", layoutVersion)
+
+	query, args, _ := r.Builder.
+		Update("coworking_layout").
+		Set("is_active", true).
+		Where("coworking_id = ?", coworkingID).
+		Where("version = ?", layoutVersion).
+		ToSql()
+
+	cmdTag, err := r.GetTxManager(ctx).Exec(ctx, query, args...)
+	if err != nil {
+		mapped := MapPgError(err)
+		logrus.WithField("coworking_id", coworkingID.String()).Error("failed to activate layout: ", mapped)
+		return mapped
+	}
+
+	if cmdTag.RowsAffected() == 0 {
+		logrus.WithField("coworking_id", coworkingID.String()).Warn("no layout version activated")
 		return ErrLayoutNotFound
 	}
 

@@ -22,11 +22,14 @@ func New(bookingService BookingService) api.Handler {
 type Request = dto.GetLayoutRequest
 
 func (h *handler) Handle(ctx echo.Context, in Request) error {
-	layout, err := h.s.GetLatestLayout(ctx.Request().Context(), in.CoworkingID)
+	layout, err := h.s.GetActiveLayout(ctx.Request().Context(), in.CoworkingID)
 
 	if err != nil {
 		if errors.Is(err, booking_service.ErrCoworkingNotFound) {
 			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		}
+		if errors.Is(err, booking_service.ErrNoActiveLayout) {
+			return echo.NewHTTPError(http.StatusNotFound, err.Error())
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

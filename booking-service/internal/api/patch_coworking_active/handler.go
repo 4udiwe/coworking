@@ -1,4 +1,4 @@
-package put_coworking_inactive
+package patch_coworking_active
 
 import (
 	"errors"
@@ -19,10 +19,10 @@ func New(bookingService BookingService) api.Handler {
 	return decorator.NewBindAndValidateDerocator(&handler{s: bookingService})
 }
 
-type Request dto.SetCoworkingInactiveRequest
+type Request dto.SetCoworkingActiveRequest
 
 func (h *handler) Handle(ctx echo.Context, in Request) error {
-	err := h.s.SetCoworkingInactive(ctx.Request().Context(), in.CoworkingID)
+	err := h.s.SetCoworkingActive(ctx.Request().Context(), in.CoworkingID, *in.Active)
 
 	if err != nil {
 		if errors.Is(err, booking_service.ErrCoworkingNotFound) {

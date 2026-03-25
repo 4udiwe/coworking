@@ -15,12 +15,18 @@ routes:
     upstream: http://auth-service:8080
   - path: /users
     upstream: http://auth-service:8080
+  - path: /admin/users
+    upstream: http://auth-service:8080
 
   - path: /bookings
     upstream: http://booking-service:8081
   - path: /coworkings
     upstream: http://booking-service:8081
-  - path: /admin
+  - path: /admin/coworkings
+    upstream: http://booking-service:8081
+  - path: /admin/places
+    upstream: http://booking-service:8081
+  - path: /admin/bookings
     upstream: http://booking-service:8081
 
   - path: /notifications

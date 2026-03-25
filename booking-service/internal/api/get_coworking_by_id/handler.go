@@ -31,9 +31,11 @@ func (h *handler) Handle(ctx echo.Context, in Request) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	return ctx.JSON(http.StatusOK, dto.Coworking{
-		ID:       c.ID,
-		Name:     c.Name,
-		Address:  c.Address,
-		IsActive: c.IsActive,
+		ID:        c.ID,
+		Name:      c.Name,
+		Address:   c.Address,
+		IsActive:  c.IsActive,
+		CreatedAt: c.CreatedAt,
+		UpdatedAt: c.UpdatedAt,
 	})
 }

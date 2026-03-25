@@ -35,10 +35,12 @@ type CoworkingRepository interface {
 	CheckHasActiveBookings(ctx context.Context, coworkingID uuid.UUID) (bool, error)
 
 	CreateLayoutVersion(ctx context.Context, layout entity.CoworkingLayout) error
-	RollbackLatestLayoutVersion(ctx context.Context, coworkingID uuid.UUID) error
-	GetLatestLayout(ctx context.Context, coworkingID uuid.UUID) (entity.CoworkingLayout, error)
+	GetActiveLayout(ctx context.Context, coworkingID uuid.UUID) (entity.CoworkingLayout, error)
 	GetLayoutByVersion(ctx context.Context, coworkingID uuid.UUID, version int) (entity.CoworkingLayout, error)
 	ListLayoutVersions(ctx context.Context, coworkingID uuid.UUID) ([]entity.CoworkingLayoutVersionTime, error)
+	DeleteLayoutVersion(ctx context.Context, coworkingID uuid.UUID, layoutVersion int) error
+	DisableAllLayoutsByCoworking(ctx context.Context, coworkingID uuid.UUID) error
+	SetLayoutActiveByVersion(ctx context.Context, coworkingID uuid.UUID, layoutVersion int) error
 }
 
 type OutboxRepo interface {

@@ -1,4 +1,4 @@
-package user_service_test
+package auth_service_test
 
 import (
 	"context"
@@ -12,10 +12,10 @@ import (
 
 	"github.com/4udiwe/coworking/auth-service/internal/auth"
 	"github.com/4udiwe/coworking/auth-service/internal/entity"
-	service "github.com/4udiwe/coworking/auth-service/internal/service"
+	service "github.com/4udiwe/coworking/auth-service/internal/service/auth"
 
 	mock_tx "github.com/4udiwe/coworking/auth-service/internal/mocks"
-	m "github.com/4udiwe/coworking/auth-service/internal/service/mocks"
+	m "github.com/4udiwe/coworking/auth-service/internal/service/auth/mocks"
 )
 
 func TestService_Register(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	api "github.com/4udiwe/coworking/auth-service/internal/api"
-	user_service "github.com/4udiwe/coworking/auth-service/internal/service"
+	auth_service "github.com/4udiwe/coworking/auth-service/internal/service/auth"
 	"github.com/4udiwe/coworking/auth-service/pkg/decorator"
 	"github.com/labstack/echo/v4"
 )
@@ -33,13 +33,13 @@ func (h *handler) Handle(ctx echo.Context, in Request) error {
 
 	if err != nil {
 		// Validation errors
-		if errors.Is(err, user_service.ErrEmptyEmail) ||
-			errors.Is(err, user_service.ErrEmptyPassword) {
+		if errors.Is(err, auth_service.ErrEmptyEmail) ||
+			errors.Is(err, auth_service.ErrEmptyPassword) {
 			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 		}
 		// Authentication errors
-		if errors.Is(err, user_service.ErrInvalidCredentials) ||
-			errors.Is(err, user_service.ErrUserNotFound) {
+		if errors.Is(err, auth_service.ErrInvalidCredentials) ||
+			errors.Is(err, auth_service.ErrUserNotFound) {
 			return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 		}
 		// Any other error is internal server error

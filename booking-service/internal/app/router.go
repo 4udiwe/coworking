@@ -41,8 +41,7 @@ func (app *App) configureRouter(handler *echo.Echo) {
 		coworkingGroup.GET("/:coworkingId/available-places", app.GetAvailablePlacesByCoworkingHandler().Handle)
 
 		coworkingGroup.GET("/:coworkingId/layout", app.GetLayoutHandler().Handle)
-		coworkingGroup.GET("/:coworkingId/layouts", app.GetLayoutVersionsHandler().Handle, middleware.AdminOnly)
-		coworkingGroup.GET("/:coworkingId/layouts/:version", app.GetLayoutByVersionHandler().Handle, middleware.AdminOnly)
+
 	}
 
 	// Public booking endpoints (user-oriented)
@@ -62,17 +61,20 @@ func (app *App) configureRouter(handler *echo.Echo) {
 
 			adminCoworkingGroup.POST("", app.PostCoworkingHandler().Handle)
 			adminCoworkingGroup.PUT("/:coworkingId", app.PutCoworkingHandler().Handle)
-			adminCoworkingGroup.PUT("/:coworkingId/activate", app.PutCoworkingActiveHandler().Handle)
-			adminCoworkingGroup.PUT("/:coworkingId/deactivate", app.PutCoworkingInactiveHandler().Handle)
+			adminCoworkingGroup.PATCH("/:coworkingId/set_active", app.PatchCoworkingActiveHandler().Handle)
 
+			adminCoworkingGroup.GET("/:coworkingId/layouts", app.GetLayoutVersionsHandler().Handle)
 			adminCoworkingGroup.POST("/:coworkingId/layouts", app.PostLayoutHandler().Handle)
-			adminCoworkingGroup.POST("/:coworkingId/layouts/rollback", app.PostLayoutRollbackHandler().Handle)
+			adminCoworkingGroup.GET("/:coworkingId/layouts/:version", app.GetLayoutByVersionHandler().Handle)
+			adminCoworkingGroup.PATCH("/:coworkingId/layouts/:version", app.PatchLayoutSetActiveHandler().Handle)
+			adminCoworkingGroup.DELETE("/:coworkingId/layouts/:version", app.DeleteLayoutHandler().Handle)
+
 		}
 
 		adminPlacesGroup := adminGroup.Group("/places")
 		{
 			adminPlacesGroup.POST("", app.PostPlacesHandler().Handle)
-			adminPlacesGroup.PUT("/:placeId/active", app.PutPlaceActiveHandler().Handle)
+			adminPlacesGroup.PATCH("/:placeId/set_active", app.PatchPlaceActiveHandler().Handle)
 		}
 
 		adminBookingsGroup := adminGroup.Group("/bookings")

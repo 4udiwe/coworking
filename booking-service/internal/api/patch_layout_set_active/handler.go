@@ -1,13 +1,13 @@
-package post_layout_rollback
+package patch_layout_set_active
 
 import (
 	"errors"
 	"net/http"
 
 	"github.com/4udiwe/cowoking/booking-service/internal/api"
+	"github.com/4udiwe/cowoking/booking-service/internal/api/dto"
 	booking_service "github.com/4udiwe/cowoking/booking-service/internal/service/booking"
 	"github.com/4udiwe/coworking/auth-service/pkg/decorator"
-	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
 
@@ -19,20 +19,16 @@ func New(bookingService BookingService) api.Handler {
 	return decorator.NewBindAndValidateDerocator(&handler{s: bookingService})
 }
 
-type Request struct {
-	CoworkingID uuid.UUID `json:"coworkingId"`
-}
+type Request = dto.SetActiveLayoutRequest
 
 func (h *handler) Handle(ctx echo.Context, in Request) error {
-	err := h.s.RollbackLatestLayoutVersion(ctx.Request().Context(), in.CoworkingID)
+	err := h.s.SetLayoutVersionToActive(ctx.Request().Context(), in.CoworkingID, in.Version)
 
 	if err != nil {
-		if errors.Is(err, booking_service.ErrCoworkingNotFound) {
+		if errors.Is(err, booking_service.ErrLayoutNotFound) {
 			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-
 	return ctx.NoContent(http.StatusAccepted)
 }
-

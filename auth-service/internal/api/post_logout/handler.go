@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	api "github.com/4udiwe/coworking/auth-service/internal/api"
-	user_service "github.com/4udiwe/coworking/auth-service/internal/service"
+	auth_service "github.com/4udiwe/coworking/auth-service/internal/service/auth"
 	"github.com/4udiwe/coworking/auth-service/pkg/decorator"
 	"github.com/labstack/echo/v4"
 )
@@ -27,12 +27,12 @@ func (h *handler) Handle(ctx echo.Context, in Request) error {
 
 	if err != nil {
 		// Validation errors
-		if errors.Is(err, user_service.ErrEmptyToken) {
+		if errors.Is(err, auth_service.ErrEmptyToken) {
 			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 		}
 		// Authentication errors
-		if errors.Is(err, user_service.ErrInvalidRefreshToken) ||
-			errors.Is(err, user_service.ErrCannotRevokeRefreshToken) {
+		if errors.Is(err, auth_service.ErrInvalidRefreshToken) ||
+			errors.Is(err, auth_service.ErrCannotRevokeRefreshToken) {
 			return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 		}
 		// Any other error is internal server error

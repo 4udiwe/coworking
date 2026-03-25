@@ -1,4 +1,4 @@
-package put_place_active
+package delete_layout
 
 import (
 	"errors"
@@ -19,17 +19,14 @@ func New(bookingService BookingService) api.Handler {
 	return decorator.NewBindAndValidateDerocator(&handler{s: bookingService})
 }
 
-type Request = dto.SetPlaceActiveRequest
+type Request = dto.DeleteLayoutRequest
 
 func (h *handler) Handle(ctx echo.Context, in Request) error {
-	err := h.s.SetPlaceActive(ctx.Request().Context(), in.PlaceID, in.Active)
+	err := h.s.DeleteLayoutVersion(ctx.Request().Context(), in.CoworkingID, in.Version)
 
 	if err != nil {
-		if errors.Is(err, booking_service.ErrPlaceHasActiveBookings) {
-			return echo.NewHTTPError(http.StatusConflict, err.Error())
-		}
-		if errors.Is(err, booking_service.ErrPlaceNotFound) {
-			return echo.NewHTTPError(http.StatusNotFound, err.Error())
+		if errors.Is(err, booking_service.ErrLayoutNotFound) {
+			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

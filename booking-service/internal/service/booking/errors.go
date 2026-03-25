@@ -8,12 +8,16 @@ var (
 	ErrCoworkingHasActiveBookings = errors.New("cannot deactivate coworking with active bookings")
 	ErrInvalidLayoutSchema        = errors.New("invalid layout schema")
 	ErrInvalidLayoutSchemaVersion = errors.New("invalid layout schema version")
+	ErrLayoutNotFound             = errors.New("layout not found")
+	ErrNoActiveLayout             = errors.New("no active layout for coworking")
 
 	ErrCannotCreateCoworking = errors.New("cannot create coworking")
 	ErrCannotUpdateCoworking = errors.New("cannot update coworking")
 	ErrCannotFetchCoworking  = errors.New("cannot fetch coworking")
 	ErrCannotCreateLayout    = errors.New("cannot create layout version")
 	ErrCannotFetchLayout     = errors.New("cannot fetch layout version")
+	ErrCannotSetActiveLayout = errors.New("cannot set active layout")
+	ErrCannotDeleteLayout    = errors.New("cannot delete layout")
 
 	ErrPlaceAlreadyExists     = errors.New("place already exists")
 	ErrPlaceNotFound          = errors.New("place not found")
