@@ -8,5 +8,5 @@ import (
 )
 
 type BookingService interface {
-	ListBookingsByUser(ctx context.Context, userID uuid.UUID) ([]entity.Booking, error)
+	ListBookingsByUser(ctx context.Context, userID uuid.UUID, page int, pageSize int, status *string) ([]entity.Booking, int, error)
 }

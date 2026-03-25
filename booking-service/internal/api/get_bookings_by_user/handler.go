@@ -20,10 +20,11 @@ func New(bookingService BookingService) api.Handler {
 	return decorator.NewBindAndValidateDerocator(&handler{s: bookingService})
 }
 
-type Request = struct{}
+type Request = dto.GetBookingsByUserRequest
 
 type Response struct {
-	Bookings []dto.Booking `json:"bookings"`
+	Bookings   []dto.Booking       `json:"bookings"`
+	Pagination dto.PaginationMeta  `json:"pagination"`
 }
 
 func (h *handler) Handle(ctx echo.Context, in Request) error {
@@ -32,11 +33,14 @@ func (h *handler) Handle(ctx echo.Context, in Request) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-	bookings, err := h.s.ListBookingsByUser(ctx.Request().Context(), claims.UserID)
+	bookings, totalCount, err := h.s.ListBookingsByUser(ctx.Request().Context(), claims.UserID, in.Page, in.PageSize, in.Status)
 
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+
+	totalPages := (totalCount + in.PageSize - 1) / in.PageSize
+
 	return ctx.JSON(http.StatusOK, Response{
 		Bookings: lo.Map(bookings, func(b entity.Booking, _ int) dto.Booking {
 			return dto.Booking{
@@ -60,5 +64,11 @@ func (h *handler) Handle(ctx echo.Context, in Request) error {
 				CancelledAt:  b.CancelledAt,
 			}
 		}),
+		Pagination: dto.PaginationMeta{
+			Page:       in.Page,
+			PageSize:   in.PageSize,
+			TotalItems: totalCount,
+			TotalPages: totalPages,
+		},
 	})
 }

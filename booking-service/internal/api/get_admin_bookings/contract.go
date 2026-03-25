@@ -8,5 +8,5 @@ import (
 )
 
 type BookingService interface {
-	ListActiveBookingsForAdmin(ctx context.Context, coworkingID uuid.UUID) ([]entity.Booking, error)
+	ListActiveBookingsForAdmin(ctx context.Context, coworkingID uuid.UUID, page int, pageSize int) ([]entity.Booking, int, error)
 }

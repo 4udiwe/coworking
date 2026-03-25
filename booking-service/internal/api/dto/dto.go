@@ -61,6 +61,13 @@ type ErrorResponse struct {
 	Details interface{} `json:"details,omitempty"`
 }
 
+type PaginationMeta struct {
+	Page       int `json:"page"`
+	PageSize   int `json:"pageSize"`
+	TotalItems int `json:"totalItems"`
+	TotalPages int `json:"totalPages"`
+}
+
 // Request DTOs
 
 type CreateCoworkingRequest struct {
@@ -116,6 +123,14 @@ type GetBookingByIDRequest struct {
 
 type GetAdminActiveBookingsRequest struct {
 	CoworkingID uuid.UUID `query:"coworkingId" validate:"required"`
+	Page        int       `query:"page" validate:"required,min=1"`
+	PageSize    int       `query:"pageSize" validate:"required,min=1,max=100"`
+}
+
+type GetBookingsByUserRequest struct {
+	Page       int    `query:"page" validate:"required,min=1"`
+	PageSize   int    `query:"pageSize" validate:"required,min=1,max=100"`
+	Status     *string `query:"status" validate:"omitempty,oneof=active completed cancelled"`
 }
 
 type CancelBookingRequest struct {

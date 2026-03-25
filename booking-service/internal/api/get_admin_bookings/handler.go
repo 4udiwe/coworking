@@ -22,15 +22,19 @@ func New(bookingService BookingService) api.Handler {
 type Request = dto.GetAdminActiveBookingsRequest
 
 type Response struct {
-	Bookings []dto.Booking `json:"bookings"`
+	Bookings   []dto.Booking       `json:"bookings"`
+	Pagination dto.PaginationMeta  `json:"pagination"`
 }
 
 func (h *handler) Handle(ctx echo.Context, in Request) error {
-	bookings, err := h.s.ListActiveBookingsForAdmin(ctx.Request().Context(), in.CoworkingID)
+	bookings, totalCount, err := h.s.ListActiveBookingsForAdmin(ctx.Request().Context(), in.CoworkingID, in.Page, in.PageSize)
 
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+
+	totalPages := (totalCount + in.PageSize - 1) / in.PageSize
+
 	return ctx.JSON(http.StatusOK, Response{
 		Bookings: lo.Map(bookings, func(b entity.Booking, _ int) dto.Booking {
 			return dto.Booking{
@@ -55,5 +59,11 @@ func (h *handler) Handle(ctx echo.Context, in Request) error {
 				CancelledAt:  b.CancelledAt,
 			}
 		}),
+		Pagination: dto.PaginationMeta{
+			Page:       in.Page,
+			PageSize:   in.PageSize,
+			TotalItems: totalCount,
+			TotalPages: totalPages,
+		},
 	})
 }

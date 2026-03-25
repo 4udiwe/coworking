@@ -273,15 +273,36 @@ paths:
       summary: История бронирований пользователя
       security:
         - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+          description: Номер страницы
+        - in: query
+          name: pageSize
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+          description: Размер страницы
+        - in: query
+          name: status
+          required: false
+          schema:
+            type: string
+            enum: [active, completed, cancelled]
+          description: Фильтр по статусу бронирования
       responses:
         "200":
-          description: Список бронирований
+          description: Список бронирований с пагинацией
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Booking"
+                $ref: "#/components/schemas/BookingsPagedResponse"
 
   /bookings/{bookingId}:
     get:
@@ -632,15 +653,28 @@ paths:
           name: coworkingId
           required: true
           schema: { type: string, format: uuid }
+        - in: query
+          name: page
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+          description: Номер страницы
+        - in: query
+          name: pageSize
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+          description: Размер страницы
       responses:
         "200":
-          description: Список бронирований
+          description: Список активных бронирований с пагинацией
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Booking"
+                $ref: "#/components/schemas/AdminBookingsPagedResponse"
 
   /admin/bookings/{bookingId}:
     delete:
@@ -1268,6 +1302,42 @@ components:
       properties:
         label: { type: string }
         type: { type: string }
+
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+          description: Номер текущей страницы
+        pageSize:
+          type: integer
+          description: Размер страницы
+        totalItems:
+          type: integer
+          description: Общее количество элементов
+        totalPages:
+          type: integer
+          description: Общее количество страниц
+
+    BookingsPagedResponse:
+      type: object
+      properties:
+        bookings:
+          type: array
+          items:
+            $ref: "#/components/schemas/Booking"
+        pagination:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    AdminBookingsPagedResponse:
+      type: object
+      properties:
+        bookings:
+          type: array
+          items:
+            $ref: "#/components/schemas/Booking"
+        pagination:
+          $ref: "#/components/schemas/PaginationMeta"
 
     UpdatePlaceRequest:
       type: object

@@ -565,16 +565,16 @@ func (s *BookingService) GetBookingByID(ctx context.Context, bookingID uuid.UUID
 	return booking, nil
 }
 
-func (s *BookingService) ListBookingsByUser(ctx context.Context, userID uuid.UUID) ([]entity.Booking, error) {
+func (s *BookingService) ListBookingsByUser(ctx context.Context, userID uuid.UUID, page int, pageSize int, status *string) ([]entity.Booking, int, error) {
 	logrus.Infof("Listing bookings for user ID: %s", userID)
 
-	bookings, err := s.bookingRepo.ListByUser(ctx, userID)
+	bookings, totalCount, err := s.bookingRepo.ListByUser(ctx, userID, page, pageSize, status)
 	if err != nil {
 		logrus.Errorf("Failed to list bookings by user: %v", err)
-		return nil, ErrCannotFetchBooking
+		return nil, 0, ErrCannotFetchBooking
 	}
 
-	return bookings, nil
+	return bookings, totalCount, nil
 }
 
 func (s *BookingService) SetCoworkingActive(ctx context.Context, coworkingID uuid.UUID, isActive bool) error {
@@ -605,14 +605,14 @@ func (s *BookingService) SetCoworkingActive(ctx context.Context, coworkingID uui
 	})
 }
 
-func (s *BookingService) ListActiveBookingsForAdmin(ctx context.Context, coworkingID uuid.UUID) ([]entity.Booking, error) {
+func (s *BookingService) ListActiveBookingsForAdmin(ctx context.Context, coworkingID uuid.UUID, page int, pageSize int) ([]entity.Booking, int, error) {
 	logrus.Infof("Listing active admin bookings")
 
-	bookings, err := s.bookingRepo.GetAdminActiveBookings(ctx, coworkingID)
+	bookings, totalCount, err := s.bookingRepo.GetAdminActiveBookings(ctx, coworkingID, page, pageSize)
 	if err != nil {
 		logrus.Errorf("Failed to list bookings: %v", err)
-		return nil, ErrCannotFetchBooking
+		return nil, 0, ErrCannotFetchBooking
 	}
 
-	return bookings, nil
+	return bookings, totalCount, nil
 }

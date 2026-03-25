@@ -127,12 +127,39 @@ func (r *BookingRepository) GetByID(
 func (r *BookingRepository) ListByUser(
 	ctx context.Context,
 	userID uuid.UUID,
-) ([]entity.Booking, error) {
+	page int,
+	pageSize int,
+	status *string,
+) ([]entity.Booking, int, error) {
 
-	query, args, _ := r.Builder.
+	// Get total count
+	countQuery := r.Builder.
+		Select("COUNT(*)").
+		From("booking b").
+		Join("place p ON b.place_id = p.id").
+		Join("booking_status bs ON b.status_id = bs.id").
+		Where("b.user_id = ?", userID)
+
+	if status != nil {
+		countQuery = countQuery.Where("bs.name = ?", *status)
+	}
+
+	countSql, countArgs, _ := countQuery.ToSql()
+
+	var totalCount int
+	err := r.GetTxManager(ctx).QueryRow(ctx, countSql, countArgs...).Scan(&totalCount)
+	if err != nil {
+		logrus.WithError(err).WithField("user_id", userID.String()).Error("failed to count user bookings")
+		return nil, 0, err
+	}
+
+	// Get paginated bookings
+	offset := (page - 1) * pageSize
+	query := r.Builder.
 		Select(
 			"b.id",
 			"b.user_id",
+			"b.user_name",
 			"b.place_id",
 			"p.label as place_label",
 			"p.place_type as place_type",
@@ -150,14 +177,23 @@ func (r *BookingRepository) ListByUser(
 		From("booking b").
 		Join("place p ON b.place_id = p.id").
 		Join("booking_status bs ON b.status_id = bs.id").
-		Where("b.user_id = ?", userID).
-		OrderBy("b.start_time DESC").
-		ToSql()
+		Where("b.user_id = ?", userID)
 
-	rows, err := r.GetTxManager(ctx).Query(ctx, query, args...)
+	if status != nil {
+		query = query.Where("bs.name = ?", *status)
+	}
+
+	query = query.
+		OrderBy("b.start_time DESC").
+		Limit(uint64(pageSize)).
+		Offset(uint64(offset))
+
+	sql, args, _ := query.ToSql()
+
+	rows, err := r.GetTxManager(ctx).Query(ctx, sql, args...)
 	if err != nil {
 		logrus.WithError(err).WithField("user_id", userID.String()).Error("failed to list user bookings")
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
@@ -165,12 +201,14 @@ func (r *BookingRepository) ListByUser(
 
 	if err != nil {
 		logrus.WithError(err).Error("failed to collect booking rows")
-		return nil, err
+		return nil, 0, err
 	}
 
-	return lo.Map(raws, func(raw rawBookingPlaceStatus, _ int) entity.Booking {
+	bookings := lo.Map(raws, func(raw rawBookingPlaceStatus, _ int) entity.Booking {
 		return raw.toEntity()
-	}), nil
+	})
+
+	return bookings, totalCount, nil
 }
 
 func (r *BookingRepository) Cancel(
@@ -233,9 +271,31 @@ func (r *BookingRepository) MarkCompleted(
 func (r *BookingRepository) GetAdminActiveBookings(
 	ctx context.Context,
 	coworkingID uuid.UUID,
-) ([]entity.Booking, error) {
+	page int,
+	pageSize int,
+) ([]entity.Booking, int, error) {
 
-	query, args, _ := r.Builder.
+	// Get total count
+	countQuery := r.Builder.
+		Select("COUNT(*)").
+		From("booking b").
+		Join("place p ON b.place_id = p.id").
+		Join("booking_status bs ON b.status_id = bs.id").
+		Where("p.coworking_id = ?", coworkingID).
+		Where("bs.name = ?", entity.BookingStatusActive)
+
+	countSql, countArgs, _ := countQuery.ToSql()
+
+	var totalCount int
+	err := r.GetTxManager(ctx).QueryRow(ctx, countSql, countArgs...).Scan(&totalCount)
+	if err != nil {
+		logrus.WithError(err).WithField("coworking_id", coworkingID.String()).Error("failed to count admin active bookings")
+		return nil, 0, err
+	}
+
+	// Get paginated bookings
+	offset := (page - 1) * pageSize
+	query := r.Builder.
 		Select(
 			"b.id",
 			"b.user_id",
@@ -260,12 +320,15 @@ func (r *BookingRepository) GetAdminActiveBookings(
 		Where("p.coworking_id = ?", coworkingID).
 		Where("bs.name = ?", entity.BookingStatusActive).
 		OrderBy("b.start_time DESC").
-		ToSql()
+		Limit(uint64(pageSize)).
+		Offset(uint64(offset))
 
-	rows, err := r.GetTxManager(ctx).Query(ctx, query, args...)
+	sql, args, _ := query.ToSql()
+
+	rows, err := r.GetTxManager(ctx).Query(ctx, sql, args...)
 	if err != nil {
-		logrus.WithError(err).Error("failed to list admin active bookings")
-		return nil, err
+		logrus.WithError(err).WithField("coworking_id", coworkingID.String()).Error("failed to list admin active bookings")
+		return nil, 0, err
 	}
 	defer rows.Close()
 
@@ -273,10 +336,12 @@ func (r *BookingRepository) GetAdminActiveBookings(
 
 	if err != nil {
 		logrus.WithError(err).Error("failed to collect booking rows")
-		return nil, err
+		return nil, 0, err
 	}
 
-	return lo.Map(raws, func(raw rawBookingPlaceStatus, _ int) entity.Booking {
+	bookings := lo.Map(raws, func(raw rawBookingPlaceStatus, _ int) entity.Booking {
 		return raw.toEntity()
-	}), nil
+	})
+
+	return bookings, totalCount, nil
 }
