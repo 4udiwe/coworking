@@ -653,6 +653,7 @@ paths:
           name: coworkingId
           required: true
           schema: { type: string, format: uuid }
+          description: ID коворкинга
         - in: query
           name: page
           required: true
@@ -668,6 +669,35 @@ paths:
             minimum: 1
             maximum: 100
           description: Размер страницы
+        - in: query
+          name: dateFrom
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Фильтр по дате начала (начиная с этой даты)
+        - in: query
+          name: dateTo
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Фильтр по дате начала (до этой даты)
+        - in: query
+          name: placeType
+          required: false
+          schema:
+            type: string
+            enum: [open_desk, meeting_room, private_office]
+          description: Фильтр по типу места
+        - in: query
+          name: sortBy
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: Сортировка по времени открытия бронирования (asc - сначала самые ранние, desc - сначала самые поздние)
       responses:
         "200":
           description: Список активных бронирований с пагинацией

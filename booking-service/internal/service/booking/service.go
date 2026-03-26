@@ -605,10 +605,10 @@ func (s *BookingService) SetCoworkingActive(ctx context.Context, coworkingID uui
 	})
 }
 
-func (s *BookingService) ListActiveBookingsForAdmin(ctx context.Context, coworkingID uuid.UUID, page int, pageSize int) ([]entity.Booking, int, error) {
+func (s *BookingService) ListActiveBookingsForAdmin(ctx context.Context, coworkingID uuid.UUID, page int, pageSize int, dateFrom *time.Time, dateTo *time.Time, placeType *string, sortBy *string) ([]entity.Booking, int, error) {
 	logrus.Infof("Listing active admin bookings")
 
-	bookings, totalCount, err := s.bookingRepo.GetAdminActiveBookings(ctx, coworkingID, page, pageSize)
+	bookings, totalCount, err := s.bookingRepo.GetAdminActiveBookings(ctx, coworkingID, page, pageSize, dateFrom, dateTo, placeType, sortBy)
 	if err != nil {
 		logrus.Errorf("Failed to list bookings: %v", err)
 		return nil, 0, ErrCannotFetchBooking

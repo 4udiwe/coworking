@@ -273,6 +273,10 @@ func (r *BookingRepository) GetAdminActiveBookings(
 	coworkingID uuid.UUID,
 	page int,
 	pageSize int,
+	dateFrom *time.Time,
+	dateTo *time.Time,
+	placeType *string,
+	sortBy *string,
 ) ([]entity.Booking, int, error) {
 
 	// Get total count
@@ -283,6 +287,17 @@ func (r *BookingRepository) GetAdminActiveBookings(
 		Join("booking_status bs ON b.status_id = bs.id").
 		Where("p.coworking_id = ?", coworkingID).
 		Where("bs.name = ?", entity.BookingStatusActive)
+
+	// Apply filters to count query
+	if dateFrom != nil {
+		countQuery = countQuery.Where("b.start_time >= ?", *dateFrom)
+	}
+	if dateTo != nil {
+		countQuery = countQuery.Where("b.start_time <= ?", *dateTo)
+	}
+	if placeType != nil {
+		countQuery = countQuery.Where("p.place_type = ?", *placeType)
+	}
 
 	countSql, countArgs, _ := countQuery.ToSql()
 
@@ -318,8 +333,29 @@ func (r *BookingRepository) GetAdminActiveBookings(
 		Join("place p ON b.place_id = p.id").
 		Join("booking_status bs ON b.status_id = bs.id").
 		Where("p.coworking_id = ?", coworkingID).
-		Where("bs.name = ?", entity.BookingStatusActive).
-		OrderBy("b.start_time DESC").
+		Where("bs.name = ?", entity.BookingStatusActive)
+
+	// Apply filters
+	if dateFrom != nil {
+		query = query.Where("b.start_time >= ?", *dateFrom)
+	}
+	if dateTo != nil {
+		query = query.Where("b.start_time <= ?", *dateTo)
+	}
+	if placeType != nil {
+		query = query.Where("p.place_type = ?", *placeType)
+	}
+
+	// Apply sorting
+	orderBy := "b.start_time DESC"
+	if sortBy != nil {
+		if *sortBy == "asc" {
+			orderBy = "b.start_time ASC"
+		}
+	}
+
+	query = query.
+		OrderBy(orderBy).
 		Limit(uint64(pageSize)).
 		Offset(uint64(offset))
 

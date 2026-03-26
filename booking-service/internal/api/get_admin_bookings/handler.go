@@ -27,7 +27,7 @@ type Response struct {
 }
 
 func (h *handler) Handle(ctx echo.Context, in Request) error {
-	bookings, totalCount, err := h.s.ListActiveBookingsForAdmin(ctx.Request().Context(), in.CoworkingID, in.Page, in.PageSize)
+	bookings, totalCount, err := h.s.ListActiveBookingsForAdmin(ctx.Request().Context(), in.CoworkingID, in.Page, in.PageSize, in.DateFrom, in.DateTo, in.PlaceType, in.SortBy)
 
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())

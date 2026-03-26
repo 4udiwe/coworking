@@ -122,9 +122,13 @@ type GetBookingByIDRequest struct {
 }
 
 type GetAdminActiveBookingsRequest struct {
-	CoworkingID uuid.UUID `query:"coworkingId" validate:"required"`
-	Page        int       `query:"page" validate:"required,min=1"`
-	PageSize    int       `query:"pageSize" validate:"required,min=1,max=100"`
+	CoworkingID uuid.UUID  `query:"coworkingId" validate:"required"`
+	Page        int        `query:"page" validate:"required,min=1"`
+	PageSize    int        `query:"pageSize" validate:"required,min=1,max=100"`
+	DateFrom    *time.Time `query:"dateFrom" validate:"omitempty"`
+	DateTo      *time.Time `query:"dateTo" validate:"omitempty"`
+	PlaceType   *string    `query:"placeType" validate:"omitempty,oneof=open_desk meeting_room private_office"`
+	SortBy      *string    `query:"sortBy" validate:"omitempty,oneof=asc desc"`
 }
 
 type GetBookingsByUserRequest struct {
