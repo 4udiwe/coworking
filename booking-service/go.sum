@@ -2,8 +2,6 @@ github.com/4udiwe/avito-pvz v0.0.0-20250909122805-a4429f441e91 h1:JX78ZL5cI6PA+T
 github.com/4udiwe/avito-pvz v0.0.0-20250909122805-a4429f441e91/go.mod h1:SJ3toA82ycr7+S2pFldWhIPOLmuSOtKKNDn4MaCcnW4=
 github.com/4udiwe/big-bob-pizza/order-service v0.0.0-20251219214901-41e245f172ab h1:GkxBLuLuWPZMngYe5zerqOffFmoz7IdrVZMAZsy9lcI=
 github.com/4udiwe/big-bob-pizza/order-service v0.0.0-20251219214901-41e245f172ab/go.mod h1:bjOkcKsYCE/9GGcZNUQ+P2GxeRDaqYjEnmB6uVkBgUk=
-github.com/4udiwe/coworking/auth-service v0.0.0-20260227112020-9232159c40b2 h1:KPeVgqQqhFWTcIc4h9WwnBbqCmhn5Wl/RIUYwCnmoyY=
-github.com/4udiwe/coworking/auth-service v0.0.0-20260227112020-9232159c40b2/go.mod h1:uuvhOjy87phHpBZ81ZYvxEVZ5RGgCNwDyqAI26chHng=
 github.com/4udiwe/coworking/auth-service v0.0.0-20260320081559-a6b95267f578 h1:DGF9v7bY+XmHZDxgeXxMXgzsl8RAQ/kcugxgrt0DJGY=
 github.com/4udiwe/coworking/auth-service v0.0.0-20260320081559-a6b95267f578/go.mod h1:Bao3ljK7r6c4uzqtrnHpQYM3t2ImJQ4VjeuPH3HZPgs=
 github.com/BurntSushi/toml v1.2.1/go.mod h1:CxXYINrC8qIiEnFrOxCa7Jy5BFHlXnUU2pbicEuybxQ=

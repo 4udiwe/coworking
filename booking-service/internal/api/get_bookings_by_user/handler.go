@@ -23,8 +23,8 @@ func New(bookingService BookingService) api.Handler {
 type Request = dto.GetBookingsByUserRequest
 
 type Response struct {
-	Bookings   []dto.Booking       `json:"bookings"`
-	Pagination dto.PaginationMeta  `json:"pagination"`
+	Bookings   []dto.Booking      `json:"bookings"`
+	Pagination dto.PaginationMeta `json:"pagination"`
 }
 
 func (h *handler) Handle(ctx echo.Context, in Request) error {
@@ -47,13 +47,14 @@ func (h *handler) Handle(ctx echo.Context, in Request) error {
 				ID:     b.ID,
 				UserID: b.UserID,
 				Place: dto.Place{
-					ID:          b.Place.ID,
-					CoworkingID: b.Place.Coworking.ID,
-					Label:       b.Place.Label,
-					PlaceType:   b.Place.PlaceType,
-					IsActive:    b.Place.IsActive,
-					CreatedAt:   b.Place.CreatedAt,
-					UpdatedAt:   b.Place.UpdatedAt,
+					ID:            b.Place.ID,
+					CoworkingID:   b.Place.Coworking.ID,
+					CoworkingName: b.Place.Coworking.Name,
+					Label:         b.Place.Label,
+					PlaceType:     b.Place.PlaceType,
+					IsActive:      b.Place.IsActive,
+					CreatedAt:     b.Place.CreatedAt,
+					UpdatedAt:     b.Place.UpdatedAt,
 				},
 				StartTime:    b.StartTime,
 				EndTime:      b.EndTime,

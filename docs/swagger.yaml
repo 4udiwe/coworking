@@ -1220,6 +1220,8 @@ components:
         coworkingId:
           type: string
           format: uuid
+        coworkingName:
+          type: string
         label:
           type: string
         placeType:

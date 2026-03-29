@@ -19,13 +19,14 @@ type Coworking struct {
 }
 
 type Place struct {
-	ID          uuid.UUID `json:"id"`
-	CoworkingID uuid.UUID `json:"coworkingId"`
-	Label       string    `json:"label"`
-	PlaceType   string    `json:"placeType"`
-	IsActive    bool      `json:"isActive"`
-	CreatedAt   time.Time `json:"createdAt"`
-	UpdatedAt   time.Time `json:"updatedAt"`
+	ID            uuid.UUID `json:"id"`
+	CoworkingID   uuid.UUID `json:"coworkingId"`
+	CoworkingName string    `json:"coworkingName"`
+	Label         string    `json:"label"`
+	PlaceType     string    `json:"placeType"`
+	IsActive      bool      `json:"isActive"`
+	CreatedAt     time.Time `json:"createdAt"`
+	UpdatedAt     time.Time `json:"updatedAt"`
 }
 
 type Booking struct {
@@ -132,9 +133,9 @@ type GetAdminActiveBookingsRequest struct {
 }
 
 type GetBookingsByUserRequest struct {
-	Page       int    `query:"page" validate:"required,min=1"`
-	PageSize   int    `query:"pageSize" validate:"required,min=1,max=100"`
-	Status     *string `query:"status" validate:"omitempty,oneof=active completed cancelled"`
+	Page     int     `query:"page" validate:"required,min=1"`
+	PageSize int     `query:"pageSize" validate:"required,min=1,max=100"`
+	Status   *string `query:"status" validate:"omitempty,oneof=active completed cancelled"`
 }
 
 type CancelBookingRequest struct {

@@ -3,6 +3,7 @@ package booking_repository
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/4udiwe/avito-pvz/pkg/postgres"
@@ -88,6 +89,11 @@ func (r *BookingRepository) GetByID(
 			"p.place_type as place_type",
 			"p.coworking_id as place_coworking_id",
 			"p.is_active as place_is_active",
+			"c.name as coworking_name",
+			"c.address as coworking_address",
+			"c.is_active as coworking_is_active",
+			"c.created_at as coworking_created_at",
+			"c.updated_at as coworking_updated_at",
 			"b.start_time",
 			"b.end_time",
 			"b.status_id",
@@ -99,6 +105,7 @@ func (r *BookingRepository) GetByID(
 		).
 		From("booking b").
 		Join("place p ON b.place_id = p.id").
+		Join("coworking c ON p.coworking_id = c.id").
 		Join("booking_status bs ON b.status_id = bs.id").
 		Where("b.id = ?", id).
 		ToSql()
@@ -165,6 +172,11 @@ func (r *BookingRepository) ListByUser(
 			"p.place_type as place_type",
 			"p.coworking_id as place_coworking_id",
 			"p.is_active as place_is_active",
+			"c.name as coworking_name",
+			"c.address as coworking_address",
+			"c.is_active as coworking_is_active",
+			"c.created_at as coworking_created_at",
+			"c.updated_at as coworking_updated_at",
 			"b.start_time",
 			"b.end_time",
 			"b.status_id",
@@ -176,6 +188,7 @@ func (r *BookingRepository) ListByUser(
 		).
 		From("booking b").
 		Join("place p ON b.place_id = p.id").
+		Join("coworking c ON p.coworking_id = c.id").
 		Join("booking_status bs ON b.status_id = bs.id").
 		Where("b.user_id = ?", userID)
 
@@ -184,6 +197,7 @@ func (r *BookingRepository) ListByUser(
 	}
 
 	query = query.
+		OrderBy(fmt.Sprintf("CASE WHEN b.status_id = %d THEN 0 ELSE 1 END", StatusActive)).
 		OrderBy("b.start_time DESC").
 		Limit(uint64(pageSize)).
 		Offset(uint64(offset))
@@ -320,6 +334,11 @@ func (r *BookingRepository) GetAdminActiveBookings(
 			"p.place_type as place_type",
 			"p.coworking_id as place_coworking_id",
 			"p.is_active as place_is_active",
+			"c.name as coworking_name",
+			"c.address as coworking_address",
+			"c.is_active as coworking_is_active",
+			"c.created_at as coworking_created_at",
+			"c.updated_at as coworking_updated_at",
 			"b.start_time",
 			"b.end_time",
 			"b.status_id",
@@ -331,6 +350,7 @@ func (r *BookingRepository) GetAdminActiveBookings(
 		).
 		From("booking b").
 		Join("place p ON b.place_id = p.id").
+		Join("coworking c ON p.coworking_id = c.id").
 		Join("booking_status bs ON b.status_id = bs.id").
 		Where("p.coworking_id = ?", coworkingID).
 		Where("bs.name = ?", entity.BookingStatusActive)
