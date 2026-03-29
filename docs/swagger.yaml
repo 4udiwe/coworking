@@ -1391,6 +1391,9 @@ components:
           type: string
         device:
           type: string
+        current:
+          type: boolean
+          description: "Indicates if this is the current session (matching JWT session ID)"
         revoked:
           type: boolean
         created_at:

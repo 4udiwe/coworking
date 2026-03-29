@@ -31,6 +31,7 @@ type ResponseSession struct {
 	UserAgent  string `json:"userAgent"`
 	Device     string `json:"device,omitempty"`
 	IPAddress  string `json:"ipAddress"`
+	Current    bool   `json:"current"`
 	Revoked    bool   `json:"revoked"`
 	CreatedAt  string `json:"createdAt"`
 	ExpiresAt  string `json:"expiresAt"`
@@ -64,6 +65,7 @@ func (h *handler) Handle(ctx echo.Context, in Request) error {
 			UserAgent:  session.UserAgent,
 			Device:     lo.FromPtr(session.DeviceName),
 			IPAddress:  session.IPAddress,
+			Current:    session.ID == claims.SessionID,
 			Revoked:    session.Revoked,
 			CreatedAt:  session.CreatedAt.Format("2006-01-02T15:04:05Z"),
 			ExpiresAt:  session.ExpiresAt.Format("2006-01-02T15:04:05Z"),

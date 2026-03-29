@@ -63,9 +63,10 @@ func (a *Auth) GenerateTokens(
 	// ================= ACCESS TOKEN =================
 
 	accessClaims := AccessClaims{
-		UserID:   user.ID,
-		UserName: user.FirstName + " " + user.LastName,
-		Email:    user.Email,
+		UserID:    user.ID,
+		SessionID: sessionID,
+		UserName:  user.FirstName + " " + user.LastName,
+		Email:     user.Email,
 		Roles: lo.Map(user.Roles, func(r entity.Role, _ int) string {
 			return string(r.Code)
 		}),
