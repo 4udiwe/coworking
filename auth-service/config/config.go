@@ -15,6 +15,7 @@ type (
 		Log      Log      `yaml:"logger"`
 		Auth     Auth     `yaml:"auth"`
 		Hasher   Hasher   `yaml:"hasher"`
+		Kafka    Kafka    `yaml:"kafka"`
 	}
 
 	App struct {
@@ -41,6 +42,17 @@ type (
 	}
 	Hasher struct {
 		Cost int `env-required:"true" yaml:"cost" env:"HASHER_COST"`
+	}
+	Kafka struct {
+		Brokers  []string      `env-required:"true" yaml:"brokers" env:"KAFKA_BROKERS"`
+		Consumer KafkaConsumer `yaml:"consumer"`
+	}
+	KafkaConsumer struct {
+		GroupID           string        `yaml:"group_id" env:"KAFKA_CONSUMER_GROUP_ID"`
+		MaxWait           time.Duration `yaml:"max_wait" env:"KAFKA_CONSUMER_MAX_WAIT"`
+		SessionTimeout    time.Duration `yaml:"session_timeout" env:"KAFKA_CONSUMER_SESSION_TIMEOUT"`
+		HeartbeatInterval time.Duration `yaml:"heartbeat_interval" env:"KAFKA_CONSUMER_HEARTBEAT_INTERVAL"`
+		CommitInterval    time.Duration `yaml:"commit_interval" env:"KAFKA_CONSUMER_COMMIT_INTERVAL"`
 	}
 )
 

@@ -9,13 +9,14 @@ import (
 
 type (
 	Config struct {
-		App       App       `yaml:"app"`
-		Postgres  Postgres  `yaml:"postgres"`
-		Log       Log       `yaml:"logger"`
-		Kafka     Kafka     `yaml:"kafka"`
-		Outbox    Outbox    `yaml:"outbox"`
-		Worker    Worker    `yaml:"worker"`
-		Scheduler Scheduler `yaml:"scheduler"`
+		App                   App        `yaml:"app"`
+		Postgres              Postgres   `yaml:"postgres"`
+		Log                   Log        `yaml:"logger"`
+		Kafka                 Kafka      `yaml:"kafka"`
+		Outbox                Outbox     `yaml:"outbox"`
+		Worker                Worker     `yaml:"worker"`
+		Scheduler             Scheduler  `yaml:"scheduler"`
+		SessionCleanupWorker  SessionCleanupWorker `yaml:"session_cleanup_worker"`
 	}
 
 	App struct {
@@ -70,6 +71,11 @@ type (
 	}
 	Scheduler struct {
 		RemindBefore time.Duration `env-required:"true" yaml:"remind_before" env:"REMIND_BEFORE"`
+	}
+	SessionCleanupWorker struct {
+		Interval      time.Duration `env-required:"true" yaml:"interval" env:"SESSION_CLEANUP_INTERVAL"`
+		RetentionDays int           `env-required:"true" yaml:"retention_days" env:"SESSION_CLEANUP_RETENTION_DAYS"`
+		Topic         string        `env-required:"true" yaml:"topic" env:"SESSION_CLEANUP_TOPIC"`
 	}
 )
 

@@ -18,3 +18,13 @@ auth:
 
 hasher:
   cost: 4 # prod - 12
+
+kafka:
+  brokers:
+    - "kafka:9092"
+  consumer:
+    group_id: "auth-service"
+    max_wait: 50ms
+    session_timeout: 10s
+    heartbeat_interval: 3s
+    commit_interval: 1s

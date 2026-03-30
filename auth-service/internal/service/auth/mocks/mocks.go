@@ -141,6 +141,21 @@ func (mr *MockAuthRepositoryMockRecorder) CreateSession(ctx, session, tokenHash 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSession", reflect.TypeOf((*MockAuthRepository)(nil).CreateSession), ctx, session, tokenHash)
 }
 
+// DeleteOldRevokedSessions mocks base method.
+func (m *MockAuthRepository) DeleteOldRevokedSessions(ctx context.Context, retentionDays int) (int64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteOldRevokedSessions", ctx, retentionDays)
+	ret0, _ := ret[0].(int64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeleteOldRevokedSessions indicates an expected call of DeleteOldRevokedSessions.
+func (mr *MockAuthRepositoryMockRecorder) DeleteOldRevokedSessions(ctx, retentionDays any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteOldRevokedSessions", reflect.TypeOf((*MockAuthRepository)(nil).DeleteOldRevokedSessions), ctx, retentionDays)
+}
+
 // DeleteOldestSessionByUser mocks base method.
 func (m *MockAuthRepository) DeleteOldestSessionByUser(ctx context.Context, userID uuid.UUID) error {
 	m.ctrl.T.Helper()

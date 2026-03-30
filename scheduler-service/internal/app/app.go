@@ -11,6 +11,7 @@ import (
 	"github.com/4udiwe/cowoking/scheduler-service/config"
 	consumer_booking "github.com/4udiwe/cowoking/scheduler-service/internal/consumer/booking"
 	"github.com/4udiwe/cowoking/scheduler-service/internal/database"
+	auth_session_cleaner_producer "github.com/4udiwe/cowoking/scheduler-service/internal/auth_session_cleaner_producer"
 	outbox_repository "github.com/4udiwe/cowoking/scheduler-service/internal/repository/outbox"
 	timer_repository "github.com/4udiwe/cowoking/scheduler-service/internal/repository/timer"
 	scheduler_service "github.com/4udiwe/cowoking/scheduler-service/internal/service/scheduler"
@@ -44,6 +45,9 @@ type App struct {
 
 	// Scheduler worker
 	scheduerWorker *worker.Worker
+
+	// Session Cleanup Worker
+	sessionCleanupWorker *auth_session_cleaner_producer.SessionCleanupWorker
 }
 
 func New(configPath string) *App {
@@ -93,6 +97,7 @@ func (app *App) Start() {
 	app.BookingConsumer().Run(ctx)
 	app.OutboxWorker().Run(ctx)
 	app.ScheduerWorker().Run(ctx)
+	app.SessionCleanupWorker().Run(ctx)
 
 	select {
 	case s := <-app.interrupt:

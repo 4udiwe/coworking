@@ -27,6 +27,7 @@ type AuthRepository interface {
 	DeleteOldestSessionByUser(ctx context.Context, userID uuid.UUID) error
 	GetSessionByDeviceFingerprint(ctx context.Context, userID uuid.UUID, deviceFingerprint string) (entity.Session, error)
 	UpdateSessionRefresh(ctx context.Context, sessionID uuid.UUID, newTokenHash string, newExpiresAt time.Time) error
+	DeleteOldRevokedSessions(ctx context.Context, retentionDays int) (int64, error)
 }
 
 type Auth interface {

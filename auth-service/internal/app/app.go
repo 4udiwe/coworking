@@ -7,10 +7,12 @@ import (
 
 	"github.com/4udiwe/avito-pvz/pkg/httpserver"
 	"github.com/4udiwe/avito-pvz/pkg/postgres"
+	"github.com/4udiwe/big-bob-pizza/order-service/pkg/kafka"
 	"github.com/4udiwe/coworking/auth-service/config"
 	"github.com/4udiwe/coworking/auth-service/internal/api"
 	"github.com/4udiwe/coworking/auth-service/internal/api/middleware"
 	"github.com/4udiwe/coworking/auth-service/internal/auth"
+	"github.com/4udiwe/coworking/auth-service/internal/consumer/cleanup"
 	"github.com/4udiwe/coworking/auth-service/internal/database"
 	"github.com/4udiwe/coworking/auth-service/internal/hasher"
 	auth_repository "github.com/4udiwe/coworking/auth-service/internal/repository/auth"
@@ -105,6 +107,24 @@ func (app *App) Start() {
 	httpServer := httpserver.New(app.EchoHandler(), httpserver.Port(app.cfg.HTTP.Port))
 	httpServer.Start()
 	log.Debugf("Server port: %s", app.cfg.HTTP.Port)
+
+	// Start Kafka consumer for session cleanup
+	kafkaConsumer := kafka.NewConsumer(app.cfg.Kafka.Brokers)
+	sessionCleanupConsumer := cleanup.New(
+		app.AuthService(),
+		kafkaConsumer,
+		"auth.events",
+		app.cfg.Kafka.Consumer.GroupID,
+	)
+
+	// Run consumer in a goroutine with its own context
+	// Consumer errors don't affect main app lifecycle
+	consumerCtx := context.Background()
+	go func() {
+		if err := sessionCleanupConsumer.Run(consumerCtx); err != nil {
+			log.Errorf("app - Start - SessionCleanupConsumer failed: %v", err)
+		}
+	}()
 
 	select {
 	case s := <-app.interrupt:

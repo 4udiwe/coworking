@@ -19,13 +19,6 @@ import (
 // MAX_ACTIVE_SESSIONS_PER_USER defines the maximum number of concurrent active sessions
 // for a single user at any given time.
 //
-// WHY THIS LIMIT:
-// - Prevents unbounded session accumulation
-// - Typical user has 1-2 devices (mobile, web)
-// - Value of 5 accommodates power users (phone, tablet, laptop, desktop, smart device)
-// - Without limit: 1000 users × 365 days = 365,000 sessions in DB
-// - With limit: 1000 users × max(5 active) = ~5,000 concurrent sessions
-//
 // WHAT HAPPENS:
 // When user logs in on 6th device while already having 5 sessions:
 // 1. System detects limit exceeded
@@ -64,7 +57,6 @@ func New(
 
 // generateDeviceFingerprint creates a unique identifier for a device based on userAgent and deviceInfo
 //
-// PURPOSE:
 // Device fingerprinting is used to detect when the same physical device is being used,
 // enabling session reuse instead of creating duplicates on token refresh.
 //
@@ -73,34 +65,6 @@ func New(
 // - Returns 64-character hex string (e.g., "abc123def456...")
 // - Same device → same fingerprint → same session ID reused
 // - Different device → different fingerprint → new session created
-//
-// WHY SHA256:
-// - Deterministic: Same inputs → same output (good for fingerprinting)
-// - Secure: Hard to reverse (privacy protection)
-// - Fixed length: Easy to store and compare (64 chars)
-//
-// EXAMPLES:
-// Device 1: iPhone (userAgent="Mozilla...iPhone...", deviceInfo="iPhone14")
-//   → fingerprint = "f7c3bc1d808e04732d7bada7c0a4...abc"
-//
-// Device 2: Android (userAgent="Mozilla...Android...", deviceInfo="SamsungGalaxy")
-//   → fingerprint = "a1b2c3d4e5f6g7h8i9j0k1l2m3n4...xyz"
-//
-// Same Device Refresh: iPhone at 10:00 then 10:05
-//   → Both: fingerprint = "f7c3bc1d808e04732d7bada7c0a4...abc"
-//   → Same session ID reused ✓
-//   → Only 1 session shown to user ✓
-//
-// EDGE CASES:
-// - Empty userAgent or deviceInfo: Still produces valid fingerprint (won't match future requests)
-// - Changed userAgent (version bump): Different fingerprint, new session created (safe behavior)
-// - Malicious userAgent manipulation: Fingerprint changes → new session (no security issue)
-//
-// STABILITY NOTE:
-// - This is intentionally rigid: even minor userAgent changes = new session
-// - Prevents potential device spoofing attacks
-// - Trade-off: Users might see new sessions occasionally if browser auto-updates
-// - This is acceptable because: old revoked session is auto-cleaned (10-day policy)
 func generateDeviceFingerprint(userAgent string, deviceInfo string) string {
 	// Combine userAgent and deviceInfo into single string
 	combined := userAgent + "|" + deviceInfo
@@ -380,29 +344,15 @@ func (s *Service) Refresh(
 		// ============================================
 		// DEDUPLICATION LOGIC: SESSION REUSE
 		// ============================================
-		// WHAT THIS DOES:
-		// Instead of creating a new session on refresh (old approach):
-		//   Old: RevokeSession(old) → CreateSession(new) → 2 sessions total (duplicates on UI)
-		//
-		// We now reuse the session if same device detected:
-		//   New: GenerateFingerprint → CheckIfSameDevice → UpdateSessionRefresh (REUSE) → 1 session total
-		//
-		// BENEFITS:
-		// - User sees only 1 session on UI (not duplicate revoked + new)
-		// - createdAt stays original (when first signed in on this device)
-		// - lastUsedAt updates (when refresh happens)
-		// - No revoked sessions cluttering the database
+		// Instead of creating a new session on refres, 
+		// reuse the session if same device detected:
+		//		GenerateFingerprint → CheckIfSameDevice → UpdateSessionRefresh (REUSE) → 1 session total
 		//
 		// HOW IT WORKS:
 		// 1. Generate device fingerprint from userAgent + deviceInfo
 		// 2. Check if current session has same fingerprint
 		// 3. If YES → Reuse: UpdateSessionRefresh() (update token + times)
 		// 4. If NO → New: CreateSession() (different device, maybe browser update)
-		//
-		// EDGE CASES HANDLED:
-		// - Old sessions (fingerprint=NULL): Falls through to CreateSession (backward compat)
-		// - userAgent changes slightly: Different fingerprint → new session (safer)
-		// - Multi-device user: Each device gets own session (as intended)
 		// ============================================
 
 		deviceFingerprint := generateDeviceFingerprint(userAgent, deviceInfo)
@@ -562,6 +512,33 @@ func (s *Service) RevokeSession(
 		logrus.WithError(err).WithField("session_id", sessionID).Error("Failed to revoke session")
 		return ErrCannotRevokeSession
 	}
+
+	return nil
+}
+
+// CleanupOldSessions удаляет старые revoked сессии из базы данных
+// 1. Получает retentionDays (например, 10)
+// 2. Вызывает authRepo.DeleteOldRevokedSessions()
+// 3. Логирует количество удалённых сессий
+//
+// Вызывается:
+// - Kafka события auth.sessions.cleanup (every 12 hours)
+func (s *Service) CleanupOldSessions(
+	ctx context.Context,
+	retentionDays int,
+) error {
+	logrus.WithField("retention_days", retentionDays).Info("Starting cleanup of old revoked sessions")
+
+	rowsDeleted, err := s.authRepo.DeleteOldRevokedSessions(ctx, retentionDays)
+	if err != nil {
+		logrus.WithError(err).WithField("retention_days", retentionDays).Error("Failed to cleanup old revoked sessions")
+		return err
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"rows_deleted":   rowsDeleted,
+		"retention_days": retentionDays,
+	}).Info("Successfully cleaned up old revoked sessions")
 
 	return nil
 }

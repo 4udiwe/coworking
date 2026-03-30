@@ -23,6 +23,7 @@
 | Topic	              | Описание	                   | Публикует            |
 |---------------------|------------------------------|----------------------|
 | booking.events	    | Жизненный цикл бронирований  | booking-service      |
+| auth.events	        | События аутентификации	     | scheduler-service    |
 | notification.events | Уведомления пользователям    | notification-service |
 | scheduler.events	  | Таймеры и отложенные события | scheduler-service    |
 
@@ -104,3 +105,24 @@
   "notificationId": "UUID"
 }
 ```
+
+# TOPIC: auth.events
+## auth.sessions.cleanup
+- Описание: Запрос на очистку старых revoked сессий
+- Публикует: scheduler-service
+- Слушают: auth-service
+- Частота: 2 раза в день (каждые 12 часов)
+
+```json
+{
+  "retentionDays": 10
+}
+```
+
+**Описание параметров:**
+- `retentionDays` — удалять revoked сессии, которым больше этого количества дней
+
+**Логика в auth-service:**
+- Получает событие с указанным retentionDays
+- Выполняет: `DELETE FROM refresh_tokens WHERE revoked = true AND created_at < now() - INTERVAL 'retentionDays days'`
+- Логирует количество удалённых записей

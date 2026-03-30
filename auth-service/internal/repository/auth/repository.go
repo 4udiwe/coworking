@@ -185,7 +185,7 @@ func (r *AuthRepository) GetUserSessions(
 }
 
 // DeleteOldestSessionByUser revokes the oldest active (non-revoked) session for a user
-// 
+//
 // PURPOSE:
 // Enforces MAX_SESSIONS_PER_USER limit. When a user exceeds the limit,
 // this method finds and revokes their oldest session to make room for a new one.
@@ -218,9 +218,9 @@ func (r *AuthRepository) DeleteOldestSessionByUser(
 		Select("id").
 		From("refresh_tokens").
 		Where("user_id = ?", userID).
-		Where("revoked = false").           // Only active sessions
-		OrderBy("created_at ASC").          // Order by oldest first
-		Limit(1).                            // Get only the first one
+		Where("revoked = false").  // Only active sessions
+		OrderBy("created_at ASC"). // Order by oldest first
+		Limit(1).                  // Get only the first one
 		ToSql()
 
 	// Step 2: Execute query to get session ID
@@ -262,7 +262,7 @@ func (r *AuthRepository) DeleteOldestSessionByUser(
 // - Return existing session → Reuse it (update last_used_at)
 // → UI shows 1 session, not 2 duplicates
 //
-// Different User refreshes on Android at 15:15  
+// Different User refreshes on Android at 15:15
 // - iPhone session exists (fingerprint = "abc123")
 // - Android fingerprint = "xyz789" (different)
 // - No matching session found
@@ -290,9 +290,9 @@ func (r *AuthRepository) GetSessionByDeviceFingerprint(
 		From("refresh_tokens").
 		Where("user_id = ?", userID).
 		Where("device_fingerprint = ?", deviceFingerprint).
-		Where("revoked = false").                    // Active only
-		Where("expires_at > now()").                 // Not expired
-		OrderBy("created_at DESC").                  // Get most recent
+		Where("revoked = false").    // Active only
+		Where("expires_at > now()"). // Not expired
+		OrderBy("created_at DESC").  // Get most recent
 		Limit(1).
 		ToSql()
 
@@ -365,4 +365,31 @@ func (r *AuthRepository) UpdateSessionRefresh(
 
 	_, err := r.GetTxManager(ctx).Exec(ctx, query, args...)
 	return err
+}
+
+// DeleteOldRevokedSessions удаляет revoked сессии старше заданного количества дней
+//
+// Cleanup старых revoked сессий из базы данных.
+// Вызывается периодически через Kafka события от scheduler-service.
+//
+// 1. Получает retentionDays (например, 10)
+// 2. Удаляет все сессии WHERE revoked = true AND created_at < now() - INTERVAL 'retentionDays days'
+// 3. Возвращает количество удалённых строк
+func (r *AuthRepository) DeleteOldRevokedSessions(
+	ctx context.Context,
+	retentionDays int,
+) (int64, error) {
+	query, args, _ := r.Builder.
+		Delete("refresh_tokens").
+		Where("revoked = true").
+		Where("created_at < now() - INTERVAL '1 day' * ?", retentionDays).
+		ToSql()
+
+	result, err := r.GetTxManager(ctx).Exec(ctx, query, args...)
+	if err != nil {
+		return 0, err
+	}
+
+	rowsAffected := result.RowsAffected()
+	return rowsAffected, nil
 }

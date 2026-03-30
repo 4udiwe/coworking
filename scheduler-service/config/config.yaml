@@ -40,3 +40,8 @@ outbox:
 
 scheduler:
   remind_before: 10m
+
+session_cleanup_worker:
+  interval: 12h
+  retention_days: 10
+  topic: "auth.events"
