@@ -15,7 +15,6 @@ import (
 
 	auth "github.com/4udiwe/coworking/auth-service/internal/auth"
 	entity "github.com/4udiwe/coworking/auth-service/internal/entity"
-	jwt_validator "github.com/4udiwe/coworking/auth-service/pkg/jwt_validator"
 	uuid "github.com/google/uuid"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -139,6 +138,20 @@ func (m *MockAuthRepository) CreateSession(ctx context.Context, session entity.S
 func (mr *MockAuthRepositoryMockRecorder) CreateSession(ctx, session, tokenHash any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateSession", reflect.TypeOf((*MockAuthRepository)(nil).CreateSession), ctx, session, tokenHash)
+}
+
+// DeleteOldestSessionByUser mocks base method.
+func (m *MockAuthRepository) DeleteOldestSessionByUser(ctx context.Context, userID uuid.UUID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteOldestSessionByUser", ctx, userID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteOldestSessionByUser indicates an expected call of DeleteOldestSessionByUser.
+func (mr *MockAuthRepositoryMockRecorder) DeleteOldestSessionByUser(ctx, userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteOldestSessionByUser", reflect.TypeOf((*MockAuthRepository)(nil).DeleteOldestSessionByUser), ctx, userID)
 }
 
 // GetSessionByID mocks base method.
@@ -318,43 +331,4 @@ func (m *MockHasher) HashPassword(password string) (string, error) {
 func (mr *MockHasherMockRecorder) HashPassword(password any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HashPassword", reflect.TypeOf((*MockHasher)(nil).HashPassword), password)
-}
-
-// MockJwtValidator is a mock of JwtValidator interface.
-type MockJwtValidator struct {
-	ctrl     *gomock.Controller
-	recorder *MockJwtValidatorMockRecorder
-	isgomock struct{}
-}
-
-// MockJwtValidatorMockRecorder is the mock recorder for MockJwtValidator.
-type MockJwtValidatorMockRecorder struct {
-	mock *MockJwtValidator
-}
-
-// NewMockJwtValidator creates a new mock instance.
-func NewMockJwtValidator(ctrl *gomock.Controller) *MockJwtValidator {
-	mock := &MockJwtValidator{ctrl: ctrl}
-	mock.recorder = &MockJwtValidatorMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockJwtValidator) EXPECT() *MockJwtValidatorMockRecorder {
-	return m.recorder
-}
-
-// Validate mocks base method.
-func (m *MockJwtValidator) Validate(tokenString string) (*jwt_validator.AccessClaims, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Validate", tokenString)
-	ret0, _ := ret[0].(*jwt_validator.AccessClaims)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Validate indicates an expected call of Validate.
-func (mr *MockJwtValidatorMockRecorder) Validate(tokenString any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockJwtValidator)(nil).Validate), tokenString)
 }

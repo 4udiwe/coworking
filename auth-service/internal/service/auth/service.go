@@ -14,6 +14,24 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// MAX_ACTIVE_SESSIONS_PER_USER defines the maximum number of concurrent active sessions
+// for a single user at any given time.
+//
+// WHY THIS LIMIT:
+// - Prevents unbounded session accumulation
+// - Typical user has 1-2 devices (mobile, web)
+// - Value of 5 accommodates power users (phone, tablet, laptop, desktop, smart device)
+// - Without limit: 1000 users × 365 days = 365,000 sessions in DB
+// - With limit: 1000 users × max(5 active) = ~5,000 concurrent sessions
+//
+// WHAT HAPPENS:
+// When user logs in on 6th device while already having 5 sessions:
+// 1. System detects limit exceeded
+// 2. Automatically revokes the oldest session
+// 3. New login succeeds, user has 5 sessions again
+// 4. Event logged for monitoring
+const MAX_ACTIVE_SESSIONS_PER_USER = 5
+
 type Service struct {
 	userRepo UserRepository
 	authRepo AuthRepository
@@ -189,6 +207,47 @@ func (s *Service) Login(
 
 		if !s.hasher.CheckPasswordHash(password, user.PasswordHash) {
 			return ErrInvalidCredentials
+		}
+
+		// ============================================
+		// NEW: Enforce session limit per user (MAX_ACTIVE_SESSIONS_PER_USER)
+		// ============================================
+		// WHAT THIS DOES:
+		// 1. Get all ACTIVE (non-revoked) sessions for this user
+		// 2. If user already has 5+ sessions, revoke the oldest one
+		// 3. This allows new login to proceed
+		//
+		// WHY:
+		// - Prevents unlimited session accumulation
+		// - User with 8 devices gets limited to 5 active sessions
+		// - When login on 6th device → oldest (1st) auto-revoked
+		// - User maintains their 5 most recent/active sessions
+		// ============================================
+		activeSessions, err := s.authRepo.GetUserSessions(ctx, user.ID, true)
+		if err != nil {
+			// If we can't fetch sessions, log but allow login anyway
+			// (better to have login succeed than fail due to DB issue)
+			logrus.WithError(err).WithField("user_id", user.ID).
+				Warn("Failed to check session limit during login, proceeding anyway")
+		} else if len(activeSessions) >= MAX_ACTIVE_SESSIONS_PER_USER {
+			// User has reached session limit
+			// Revoke the oldest session to make room for new one
+			if err := s.authRepo.DeleteOldestSessionByUser(ctx, user.ID); err != nil {
+				logrus.WithError(err).WithField("user_id", user.ID).
+					Warn("Failed to revoke oldest session")
+				// Don't fail login - new session creation may still succeed
+			} else {
+				// Log successful auto-revocation for monitoring and debugging
+				logrus.WithFields(logrus.Fields{
+					"user_id":              user.ID,
+					"email":                email,
+					"active_sessions":      len(activeSessions),
+					"max_sessions":         MAX_ACTIVE_SESSIONS_PER_USER,
+					"user_agent":           userAgent,
+					"device_info":          deviceInfo,
+					"action":               "auto_revoke_oldest_session",
+				}).Info("User reached session limit, auto-revoked oldest session")
+			}
 		}
 
 		sessionID := uuid.New()

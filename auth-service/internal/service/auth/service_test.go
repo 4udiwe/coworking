@@ -13,6 +13,7 @@ import (
 	"github.com/4udiwe/coworking/auth-service/internal/auth"
 	"github.com/4udiwe/coworking/auth-service/internal/entity"
 	service "github.com/4udiwe/coworking/auth-service/internal/service/auth"
+	"github.com/4udiwe/coworking/auth-service/pkg/jwt_validator"
 
 	mock_tx "github.com/4udiwe/coworking/auth-service/internal/mocks"
 	m "github.com/4udiwe/coworking/auth-service/internal/service/auth/mocks"
@@ -25,7 +26,7 @@ func TestService_Register(t *testing.T) {
 		tx           *mock_tx.MockTransactor
 		a            *m.MockAuth
 		h            *m.MockHasher
-		jwtValidator *m.MockJwtValidator
+		jwtValidator *jwt_validator.Validator
 	}
 
 	tests := []struct {

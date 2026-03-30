@@ -23,6 +23,7 @@ type AuthRepository interface {
 	UpdateLastUsedAt(ctx context.Context, id uuid.UUID) error
 	RevokeSession(ctx context.Context, id uuid.UUID) error
 	GetUserSessions(ctx context.Context, userID uuid.UUID, onlyActive bool) ([]entity.Session, error)
+	DeleteOldestSessionByUser(ctx context.Context, userID uuid.UUID) error
 }
 
 type Auth interface {
