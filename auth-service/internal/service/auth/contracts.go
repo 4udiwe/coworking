@@ -2,6 +2,7 @@ package auth_service
 
 import (
 	"context"
+	"time"
 
 	"github.com/4udiwe/coworking/auth-service/internal/auth"
 	"github.com/4udiwe/coworking/auth-service/internal/entity"
@@ -24,6 +25,8 @@ type AuthRepository interface {
 	RevokeSession(ctx context.Context, id uuid.UUID) error
 	GetUserSessions(ctx context.Context, userID uuid.UUID, onlyActive bool) ([]entity.Session, error)
 	DeleteOldestSessionByUser(ctx context.Context, userID uuid.UUID) error
+	GetSessionByDeviceFingerprint(ctx context.Context, userID uuid.UUID, deviceFingerprint string) (entity.Session, error)
+	UpdateSessionRefresh(ctx context.Context, sessionID uuid.UUID, newTokenHash string, newExpiresAt time.Time) error
 }
 
 type Auth interface {

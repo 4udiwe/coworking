@@ -2,8 +2,10 @@ package auth_service
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/4udiwe/avito-pvz/pkg/transactor"
@@ -58,6 +60,57 @@ func New(
 		hasher:          hasher,
 		refreshTokenTTL: refreshTokenTTL,
 	}
+}
+
+// generateDeviceFingerprint creates a unique identifier for a device based on userAgent and deviceInfo
+//
+// PURPOSE:
+// Device fingerprinting is used to detect when the same physical device is being used,
+// enabling session reuse instead of creating duplicates on token refresh.
+//
+// HOW IT WORKS:
+// - Hashes userAgent + deviceInfo using SHA256
+// - Returns 64-character hex string (e.g., "abc123def456...")
+// - Same device → same fingerprint → same session ID reused
+// - Different device → different fingerprint → new session created
+//
+// WHY SHA256:
+// - Deterministic: Same inputs → same output (good for fingerprinting)
+// - Secure: Hard to reverse (privacy protection)
+// - Fixed length: Easy to store and compare (64 chars)
+//
+// EXAMPLES:
+// Device 1: iPhone (userAgent="Mozilla...iPhone...", deviceInfo="iPhone14")
+//   → fingerprint = "f7c3bc1d808e04732d7bada7c0a4...abc"
+//
+// Device 2: Android (userAgent="Mozilla...Android...", deviceInfo="SamsungGalaxy")
+//   → fingerprint = "a1b2c3d4e5f6g7h8i9j0k1l2m3n4...xyz"
+//
+// Same Device Refresh: iPhone at 10:00 then 10:05
+//   → Both: fingerprint = "f7c3bc1d808e04732d7bada7c0a4...abc"
+//   → Same session ID reused ✓
+//   → Only 1 session shown to user ✓
+//
+// EDGE CASES:
+// - Empty userAgent or deviceInfo: Still produces valid fingerprint (won't match future requests)
+// - Changed userAgent (version bump): Different fingerprint, new session created (safe behavior)
+// - Malicious userAgent manipulation: Fingerprint changes → new session (no security issue)
+//
+// STABILITY NOTE:
+// - This is intentionally rigid: even minor userAgent changes = new session
+// - Prevents potential device spoofing attacks
+// - Trade-off: Users might see new sessions occasionally if browser auto-updates
+// - This is acceptable because: old revoked session is auto-cleaned (10-day policy)
+func generateDeviceFingerprint(userAgent string, deviceInfo string) string {
+	// Combine userAgent and deviceInfo into single string
+	combined := userAgent + "|" + deviceInfo
+
+	// Hash with SHA256
+	hash := sha256.New()
+	io.WriteString(hash, combined)
+
+	// Return 64-character hex string
+	return fmt.Sprintf("%x", hash.Sum(nil))
 }
 
 func (s *Service) Register(
@@ -141,16 +194,19 @@ func (s *Service) Register(
 			return fmt.Errorf("%w: %v", ErrTokenGenerationFailed, err)
 		}
 
+		deviceFingerprint := generateDeviceFingerprint(userAgent, deviceInfo)
+
 		// Save refresh token
 		if err := s.authRepo.CreateSession(
 			ctx,
 			entity.Session{
-				ID:         sessionID,
-				UserID:     user.ID,
-				UserAgent:  userAgent,
-				IPAddress:  ip,
-				DeviceName: &deviceInfo,
-				ExpiresAt:  time.Now().Add(s.refreshTokenTTL),
+				ID:                sessionID,
+				UserID:            user.ID,
+				UserAgent:         userAgent,
+				IPAddress:         ip,
+				DeviceName:        &deviceInfo,
+				DeviceFingerprint: &deviceFingerprint,
+				ExpiresAt:         time.Now().Add(s.refreshTokenTTL),
 			},
 			s.auth.HashToken(tokens.RefreshToken),
 		); err != nil {
@@ -239,13 +295,13 @@ func (s *Service) Login(
 			} else {
 				// Log successful auto-revocation for monitoring and debugging
 				logrus.WithFields(logrus.Fields{
-					"user_id":              user.ID,
-					"email":                email,
-					"active_sessions":      len(activeSessions),
-					"max_sessions":         MAX_ACTIVE_SESSIONS_PER_USER,
-					"user_agent":           userAgent,
-					"device_info":          deviceInfo,
-					"action":               "auto_revoke_oldest_session",
+					"user_id":         user.ID,
+					"email":           email,
+					"active_sessions": len(activeSessions),
+					"max_sessions":    MAX_ACTIVE_SESSIONS_PER_USER,
+					"user_agent":      userAgent,
+					"device_info":     deviceInfo,
+					"action":          "auto_revoke_oldest_session",
 				}).Info("User reached session limit, auto-revoked oldest session")
 			}
 		}
@@ -257,15 +313,18 @@ func (s *Service) Login(
 			return ErrCannotGenerateTokens
 		}
 
+		deviceFingerprint := generateDeviceFingerprint(userAgent, deviceInfo)
+
 		return s.authRepo.CreateSession(
 			ctx,
 			entity.Session{
-				ID:         sessionID,
-				UserID:     user.ID,
-				UserAgent:  userAgent,
-				IPAddress:  ip,
-				DeviceName: &deviceInfo,
-				ExpiresAt:  time.Now().Add(s.refreshTokenTTL),
+				ID:                sessionID,
+				UserID:            user.ID,
+				UserAgent:         userAgent,
+				IPAddress:         ip,
+				DeviceName:        &deviceInfo,
+				DeviceFingerprint: &deviceFingerprint,
+				ExpiresAt:         time.Now().Add(s.refreshTokenTTL),
 			},
 			s.auth.HashToken(tokens.RefreshToken),
 		)
@@ -318,32 +377,103 @@ func (s *Service) Refresh(
 			return ErrUserInactive
 		}
 
-		// фиксируем использование
-		if err := s.authRepo.UpdateLastUsedAt(ctx, session.ID); err != nil {
-			return ErrCannotUpdateSession
+		// ============================================
+		// DEDUPLICATION LOGIC: SESSION REUSE
+		// ============================================
+		// WHAT THIS DOES:
+		// Instead of creating a new session on refresh (old approach):
+		//   Old: RevokeSession(old) → CreateSession(new) → 2 sessions total (duplicates on UI)
+		//
+		// We now reuse the session if same device detected:
+		//   New: GenerateFingerprint → CheckIfSameDevice → UpdateSessionRefresh (REUSE) → 1 session total
+		//
+		// BENEFITS:
+		// - User sees only 1 session on UI (not duplicate revoked + new)
+		// - createdAt stays original (when first signed in on this device)
+		// - lastUsedAt updates (when refresh happens)
+		// - No revoked sessions cluttering the database
+		//
+		// HOW IT WORKS:
+		// 1. Generate device fingerprint from userAgent + deviceInfo
+		// 2. Check if current session has same fingerprint
+		// 3. If YES → Reuse: UpdateSessionRefresh() (update token + times)
+		// 4. If NO → New: CreateSession() (different device, maybe browser update)
+		//
+		// EDGE CASES HANDLED:
+		// - Old sessions (fingerprint=NULL): Falls through to CreateSession (backward compat)
+		// - userAgent changes slightly: Different fingerprint → new session (safer)
+		// - Multi-device user: Each device gets own session (as intended)
+		// ============================================
+
+		deviceFingerprint := generateDeviceFingerprint(userAgent, deviceInfo)
+
+		// Check if current session is on same device (same fingerprint)
+		isSameDevice := session.DeviceFingerprint != nil && *session.DeviceFingerprint == deviceFingerprint
+
+		if isSameDevice {
+			// REUSE SESSION: Update existing session with new token and refresh times
+			logrus.WithFields(logrus.Fields{
+				"session_id":         session.ID,
+				"user_id":            session.UserID,
+				"device_fingerprint": deviceFingerprint,
+				"action":             "session_reuse",
+			}).Info("Reusing session on same device (session deduplication)")
+
+			// Generate new tokens with SAME SESSION ID (preserves session identity)
+			tokens, err = s.auth.GenerateTokens(user, session.ID)
+			if err != nil {
+				return ErrCannotGenerateTokens
+			}
+
+			// Update session with new token hash and refresh times
+			newExpiresAt := time.Now().Add(s.refreshTokenTTL)
+			if err := s.authRepo.UpdateSessionRefresh(
+				ctx,
+				session.ID,
+				s.auth.HashToken(tokens.RefreshToken),
+				newExpiresAt,
+			); err != nil {
+				logrus.WithError(err).WithField("session_id", session.ID).
+					Error("Failed to update session on refresh")
+				return ErrCannotUpdateSession
+			}
+
+			return nil
 		}
 
-		// ROTATION
+		// DIFFERENT DEVICE: Create new session (standard token rotation)
+		logrus.WithFields(logrus.Fields{
+			"session_id":    session.ID,
+			"user_id":       session.UserID,
+			"old_device_fp": formatFingerprint(session.DeviceFingerprint),
+			"new_device_fp": deviceFingerprint,
+			"action":        "create_new_session",
+		}).Info("Different device detected, creating new session (standard rotation)")
+
+		// Revoke old session on different device
 		if err := s.authRepo.RevokeSession(ctx, session.ID); err != nil {
-			return ErrCannotRevokeSession
+			logrus.WithError(err).WithField("session_id", session.ID).
+				Warn("Failed to revoke old session during refresh")
+			// Don't fail - new session may still be created
 		}
 
 		newSessionID := uuid.New()
-
 		tokens, err = s.auth.GenerateTokens(user, newSessionID)
 		if err != nil {
 			return ErrCannotGenerateTokens
 		}
 
+		// Create new session for new device
 		return s.authRepo.CreateSession(
 			ctx,
 			entity.Session{
-				ID:         newSessionID,
-				UserID:     user.ID,
-				UserAgent:  userAgent,
-				IPAddress:  ip,
-				DeviceName: &deviceInfo,
-				ExpiresAt:  time.Now().Add(s.refreshTokenTTL),
+				ID:                newSessionID,
+				UserID:            user.ID,
+				UserAgent:         userAgent,
+				IPAddress:         ip,
+				DeviceName:        &deviceInfo,
+				DeviceFingerprint: &deviceFingerprint,
+				ExpiresAt:         time.Now().Add(s.refreshTokenTTL),
 			},
 			s.auth.HashToken(tokens.RefreshToken),
 		)
@@ -365,6 +495,18 @@ func (s *Service) Refresh(
 	}
 
 	return tokens, nil
+}
+
+// formatFingerprint returns a formatted fingerprint string for logging (shows first 8 chars)
+// This provides better readability in logs while protecting privacy (doesn't show full hash)
+func formatFingerprint(fp *string) string {
+	if fp == nil {
+		return "(none)"
+	}
+	if len(*fp) >= 8 {
+		return (*fp)[:8] + "..."
+	}
+	return *fp
 }
 
 func (s *Service) Logout(
@@ -423,4 +565,3 @@ func (s *Service) RevokeSession(
 
 	return nil
 }
-

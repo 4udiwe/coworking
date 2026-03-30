@@ -12,6 +12,7 @@ package mocks
 import (
 	context "context"
 	reflect "reflect"
+	time "time"
 
 	auth "github.com/4udiwe/coworking/auth-service/internal/auth"
 	entity "github.com/4udiwe/coworking/auth-service/internal/entity"
@@ -154,6 +155,21 @@ func (mr *MockAuthRepositoryMockRecorder) DeleteOldestSessionByUser(ctx, userID 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteOldestSessionByUser", reflect.TypeOf((*MockAuthRepository)(nil).DeleteOldestSessionByUser), ctx, userID)
 }
 
+// GetSessionByDeviceFingerprint mocks base method.
+func (m *MockAuthRepository) GetSessionByDeviceFingerprint(ctx context.Context, userID uuid.UUID, deviceFingerprint string) (entity.Session, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSessionByDeviceFingerprint", ctx, userID, deviceFingerprint)
+	ret0, _ := ret[0].(entity.Session)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSessionByDeviceFingerprint indicates an expected call of GetSessionByDeviceFingerprint.
+func (mr *MockAuthRepositoryMockRecorder) GetSessionByDeviceFingerprint(ctx, userID, deviceFingerprint any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSessionByDeviceFingerprint", reflect.TypeOf((*MockAuthRepository)(nil).GetSessionByDeviceFingerprint), ctx, userID, deviceFingerprint)
+}
+
 // GetSessionByID mocks base method.
 func (m *MockAuthRepository) GetSessionByID(ctx context.Context, id uuid.UUID) (entity.Session, error) {
 	m.ctrl.T.Helper()
@@ -210,6 +226,20 @@ func (m *MockAuthRepository) UpdateLastUsedAt(ctx context.Context, id uuid.UUID)
 func (mr *MockAuthRepositoryMockRecorder) UpdateLastUsedAt(ctx, id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLastUsedAt", reflect.TypeOf((*MockAuthRepository)(nil).UpdateLastUsedAt), ctx, id)
+}
+
+// UpdateSessionRefresh mocks base method.
+func (m *MockAuthRepository) UpdateSessionRefresh(ctx context.Context, sessionID uuid.UUID, newTokenHash string, newExpiresAt time.Time) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateSessionRefresh", ctx, sessionID, newTokenHash, newExpiresAt)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateSessionRefresh indicates an expected call of UpdateSessionRefresh.
+func (mr *MockAuthRepositoryMockRecorder) UpdateSessionRefresh(ctx, sessionID, newTokenHash, newExpiresAt any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSessionRefresh", reflect.TypeOf((*MockAuthRepository)(nil).UpdateSessionRefresh), ctx, sessionID, newTokenHash, newExpiresAt)
 }
 
 // MockAuth is a mock of Auth interface.
