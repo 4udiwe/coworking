@@ -116,7 +116,6 @@ services:
     depends_on:
       clickhouse_analytics:
         condition: service_healthy
-    command: ["server"]
     networks:
       - app-network
 

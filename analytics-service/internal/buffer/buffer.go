@@ -43,13 +43,14 @@ func NewBatchBuffer(
 }
 
 func (b *BatchBuffer) Add(event entity.BookingEvent) {
-
 	b.mu.Lock()
-	defer b.mu.Unlock()
 
 	b.events = append(b.events, event)
+	shouldFlush := len(b.events) >= b.batchSize
 
-	if len(b.events) >= b.batchSize {
+	b.mu.Unlock()
+
+	if shouldFlush {
 		b.flush()
 	}
 }
@@ -88,9 +89,10 @@ func (b *BatchBuffer) flush() {
 
 	b.mu.Unlock()
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(b.ctx, 5*time.Second)
+	defer cancel()
 
 	if err := b.analytics.InsertEvents(ctx, events); err != nil {
-		logrus.WithError(err).Error("batch insert failed")
+		logrus.WithError(err).Errorf("batch insert failed, events lost: %d", len(events))
 	}
 }

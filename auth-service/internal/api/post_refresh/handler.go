@@ -39,6 +39,10 @@ func (h *handler) Handle(ctx echo.Context, in Request) error {
 		if errors.Is(err, auth_service.ErrInvalidRefreshToken) {
 			return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 		}
+		// Expired session
+		if errors.Is(err, auth_service.ErrSessionExpired) {
+			return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+		}
 		// Any other error is internal server error
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

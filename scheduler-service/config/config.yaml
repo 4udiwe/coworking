@@ -43,5 +43,5 @@ scheduler:
 
 session_cleanup_worker:
   interval: 12h
-  retention_days: 10
+  retention_days: 1
   topic: "auth.events"

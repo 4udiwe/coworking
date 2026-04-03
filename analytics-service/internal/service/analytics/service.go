@@ -42,11 +42,22 @@ func (s *AnalyticsService) InsertEvents(ctx context.Context, events []entity.Boo
 }
 
 // GetHourlyLoad возвращает распределение количества бронирований по часам дня для коворкинга.
+// Если weekday не указан (nil), возвращает усреднённые часы по всем дням недели.
+// Если weekday указан (1-7), возвращает часы только для конкретного дня недели.
 // Возвращает карту, где ключ - час суток (0-23), значение - количество бронирований.
 // В случае ошибки возвращает ErrCannotFetchInfo.
-func (s *AnalyticsService) GetHourlyLoad(ctx context.Context, coworkingID uuid.UUID) (map[int]int, error) {
-	logrus.Infof("Getting hourly load for coworking ID: %s", coworkingID)
+func (s *AnalyticsService) GetHourlyLoad(ctx context.Context, coworkingID uuid.UUID, weekday *int) (map[int]int, error) {
+	if weekday != nil {
+		logrus.Infof("Getting hourly load for coworking ID: %s, weekday: %d", coworkingID, *weekday)
+		result, err := s.repo.GetCoworkingHourlyLoadByWeekday(ctx, coworkingID, *weekday)
+		if err != nil {
+			logrus.Errorf("Failed to get hourly load by weekday: %v", err)
+			return nil, ErrCannotFetchInfo
+		}
+		return result, nil
+	}
 
+	logrus.Infof("Getting hourly load for coworking ID: %s", coworkingID)
 	result, err := s.repo.GetCoworkingHourlyLoad(ctx, coworkingID)
 	if err != nil {
 		logrus.Errorf("Failed to get hourly load: %v", err)

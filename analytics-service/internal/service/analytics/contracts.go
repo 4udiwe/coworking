@@ -10,6 +10,7 @@ import (
 // AnalyticsRepository определяет интерфейс для работы с репозиторием аналитики бронирований.
 type AnalyticsRepository interface {
 	GetCoworkingHourlyLoad(ctx context.Context, coworkingID uuid.UUID) (map[int]int, error)
+	GetCoworkingHourlyLoadByWeekday(ctx context.Context, coworkingID uuid.UUID, weekday int) (map[int]int, error)
 	GetCoworkingWeekdayLoad(ctx context.Context, coworkingID uuid.UUID) (map[int]int, error)
 	GetCoworkingHeatmap(ctx context.Context, coworkingID uuid.UUID) ([]entity.HeatmapCell, error)
 	GetPlaceHeatmap(ctx context.Context, placeID uuid.UUID) ([]entity.HeatmapCell, error)

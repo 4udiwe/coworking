@@ -34,13 +34,18 @@ func Logging(next http.Handler) http.Handler {
 		rec := &recorder{ResponseWriter: w}
 
 		next.ServeHTTP(rec, r)
-
-		logrus.WithFields(logrus.Fields{
+		fields := logrus.Fields{
 			"method":   r.Method,
 			"path":     r.URL.Path,
 			"status":   rec.status,
 			"size":     rec.size,
 			"duration": time.Since(start).String(),
-		}).Info("request")
+		}
+
+		if rec.status >= 400 {
+			logrus.WithFields(fields).Warn("request")
+
+		}
+		logrus.WithFields(fields).Info("request")
 	})
 }

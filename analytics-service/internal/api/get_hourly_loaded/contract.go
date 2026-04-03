@@ -7,5 +7,5 @@ import (
 )
 
 type AnalyticsService interface {
-	GetHourlyLoad(ctx context.Context, coworkingID uuid.UUID) (map[int]int, error)
+	GetHourlyLoad(ctx context.Context, coworkingID uuid.UUID, weekday *int) (map[int]int, error)
 }

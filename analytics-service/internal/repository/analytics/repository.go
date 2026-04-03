@@ -112,6 +112,44 @@ func (r *AnalyticsRepository) GetCoworkingHourlyLoad(
 	return result, nil
 }
 
+func (r *AnalyticsRepository) GetCoworkingHourlyLoadByWeekday(
+	ctx context.Context,
+	coworkingID uuid.UUID,
+	weekday int,
+) (map[int]int, error) {
+
+	rows, err := r.ch.Conn().Query(ctx,
+		`
+        SELECT hour, sum(bookings)
+        FROM coworking_heatmap
+        WHERE coworking_id = ? AND weekday = ?
+        GROUP BY hour
+        ORDER BY hour
+        `,
+		coworkingID,
+		weekday,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[int]int)
+
+	for rows.Next() {
+
+		var hour uint8
+		var count uint64
+
+		if err := rows.Scan(&hour, &count); err != nil {
+			return nil, err
+		}
+
+		result[int(hour)] = int(count)
+	}
+
+	return result, nil
+}
+
 func (r *AnalyticsRepository) GetCoworkingWeekdayLoad(
 	ctx context.Context,
 	coworkingID uuid.UUID,
