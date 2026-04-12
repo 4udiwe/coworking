@@ -3,6 +3,7 @@ package notification_repository
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/4udiwe/avito-pvz/pkg/postgres"
 	"github.com/4udiwe/coworking/notification-service/internal/entity"
@@ -36,6 +37,7 @@ func (r *NotificationRepository) Create(
 			title,
 			body,
 			payload,
+			action_url,
 			status_id
 		) VALUES (
 			$1,
@@ -43,6 +45,7 @@ func (r *NotificationRepository) Create(
 			$3,
 			$4,
 			$5,
+			$6,
 			1 -- unread
 		)
 		RETURNING id
@@ -57,6 +60,7 @@ func (r *NotificationRepository) Create(
 		notification.Title,
 		notification.Body,
 		notification.Payload,
+		notification.ActionURL,
 	).Scan(&id)
 
 	if err != nil {
@@ -85,6 +89,7 @@ func (r *NotificationRepository) FindByUser(
 			"n.title",
 			"n.body",
 			"n.payload",
+			"n.action_url",
 			"n.status_id",
 			"ns.name as status_name",
 			"n.created_at",
@@ -128,6 +133,7 @@ func (r *NotificationRepository) FetchUnreadByUser(ctx context.Context, userID u
 			"n.title",
 			"n.body",
 			"n.payload",
+			"n.action_url",
 			"n.status_id",
 			"ns.name as status_name",
 			"n.created_at",
@@ -205,6 +211,7 @@ func (r *NotificationRepository) GetByID(
 			"n.title",
 			"n.body",
 			"n.payload",
+			"n.action_url",
 			"n.status_id",
 			"ns.name as status_name",
 			"n.created_at",
@@ -236,4 +243,175 @@ func (r *NotificationRepository) GetByID(
 	}
 
 	return rawNotification.toEntity(), nil
+}
+
+func (r *NotificationRepository) FetchByUser(
+	ctx context.Context,
+	userID uuid.UUID,
+	limit, offset int,
+	isRead *bool,
+) ([]entity.Notification, error) {
+
+	builder := r.Builder.
+		Select(
+			"n.id",
+			"n.user_id",
+			"n.notification_type_id",
+			"nt.name as notification_type_name",
+			"n.title",
+			"n.body",
+			"n.payload",
+			"n.action_url",
+			"n.status_id",
+			"ns.name as status_name",
+			"n.created_at",
+			"n.read_at",
+		).
+		From("notification n").
+		Join("notification_type nt ON n.notification_type_id = nt.id").
+		Join("notification_status ns ON n.status_id = ns.id").
+		Where("n.user_id = ?", userID)
+
+	if isRead != nil {
+		statusName := entity.StatusRead
+		if !*isRead {
+			statusName = entity.StatusUnread
+		}
+		builder = builder.Where("ns.name = ?", statusName)
+	}
+
+	builder = builder.OrderBy("n.created_at DESC").
+		Limit(uint64(limit)).
+		Offset(uint64(offset))
+
+	query, args, _ := builder.ToSql()
+
+	rows, err := r.GetTxManager(ctx).Query(ctx, query, args...)
+
+	if err != nil {
+		logrus.WithError(err).Error("failed to fetch notifications")
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	rawNotifications, err := pgx.CollectRows(rows, pgx.RowToStructByName[rawNotification])
+
+	if err != nil {
+		logrus.WithError(err).Error("failed to collect notifications")
+		return nil, err
+	}
+
+	return lo.Map(rawNotifications, func(r rawNotification, _ int) entity.Notification {
+		return r.toEntity()
+	}), nil
+}
+
+func (r *NotificationRepository) MarkAllRead(
+	ctx context.Context,
+	userID uuid.UUID,
+) error {
+
+	query := `
+		UPDATE notification n
+		SET status_id = ns.id,
+			read_at = NOW()
+		FROM notification_status ns
+		WHERE n.user_id = $1
+			AND ns.name = $2
+			AND n.status_id != ns.id
+	`
+
+	_, err := r.GetTxManager(ctx).Exec(ctx, query, userID, entity.StatusRead)
+
+	if err != nil {
+		logrus.WithField("user_id", userID.String()).
+			WithError(err).
+			Error("failed to mark all notifications as read")
+
+		return err
+	}
+
+	return nil
+}
+
+func (r *NotificationRepository) GetUnreadCount(
+	ctx context.Context,
+	userID uuid.UUID,
+) (int, error) {
+
+	query := `
+		SELECT COUNT(*) 
+		FROM notification n
+		JOIN notification_status ns ON n.status_id = ns.id
+		WHERE n.user_id = $1
+			AND ns.name = $2
+	`
+
+	var count int
+	err := r.GetTxManager(ctx).QueryRow(ctx, query, userID, entity.StatusUnread).Scan(&count)
+
+	if err != nil {
+		logrus.WithField("user_id", userID.String()).
+			WithError(err).
+			Error("failed to get unread count")
+
+		return 0, err
+	}
+
+	return count, nil
+}
+
+func (r *NotificationRepository) FetchAfterDate(
+	ctx context.Context,
+	userID uuid.UUID,
+	since time.Time,
+	limit, offset int,
+) ([]entity.Notification, error) {
+
+	builder := r.Builder.
+		Select(
+			"n.id",
+			"n.user_id",
+			"n.notification_type_id",
+			"nt.name as notification_type_name",
+			"n.title",
+			"n.body",
+			"n.payload",
+			"n.action_url",
+			"n.status_id",
+			"ns.name as status_name",
+			"n.created_at",
+			"n.read_at",
+		).
+		From("notification n").
+		Join("notification_type nt ON n.notification_type_id = nt.id").
+		Join("notification_status ns ON n.status_id = ns.id").
+		Where("n.user_id = ?", userID).
+		Where("n.created_at >= ?", since).
+		OrderBy("n.created_at DESC").
+		Limit(uint64(limit)).
+		Offset(uint64(offset))
+
+	query, args, _ := builder.ToSql()
+
+	rows, err := r.GetTxManager(ctx).Query(ctx, query, args...)
+
+	if err != nil {
+		logrus.WithError(err).Error("failed to fetch notifications after date")
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	rawNotifications, err := pgx.CollectRows(rows, pgx.RowToStructByName[rawNotification])
+
+	if err != nil {
+		logrus.WithError(err).Error("failed to collect notifications after date")
+		return nil, err
+	}
+
+	return lo.Map(rawNotifications, func(r rawNotification, _ int) entity.Notification {
+		return r.toEntity()
+	}), nil
 }

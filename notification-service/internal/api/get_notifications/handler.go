@@ -22,7 +22,7 @@ func New(notificationService NotificationService) api.Handler {
 	return decorator.NewBindAndValidateDerocator(&handler{s: notificationService})
 }
 
-type Request = dto.MarkNotificationReadRequest
+type Request = dto.GetNotificationsQuery
 
 func (h *handler) Handle(ctx echo.Context, in Request) error {
 
@@ -31,12 +31,38 @@ func (h *handler) Handle(ctx echo.Context, in Request) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-	notifications, err := h.s.FetchUnreadNotifications(ctx.Request().Context(), claims.UserID, NOTIFICATIONS_LIMIT)
+	limit := in.Limit
+	if limit == 0 {
+		limit = NOTIFICATIONS_LIMIT
+	}
+
+	var notifications []entity.Notification
+
+	// If since parameter is provided, use date-based filtering
+	if in.Since != nil {
+		notifications, err = h.s.FetchNotificationsAfterDate(
+			ctx.Request().Context(),
+			claims.UserID,
+			*in.Since,
+			limit,
+			in.Offset,
+		)
+	} else {
+		// Otherwise use regular filtering
+		notifications, err = h.s.FetchNotifications(
+			ctx.Request().Context(),
+			claims.UserID,
+			limit,
+			in.Offset,
+			in.IsRead,
+		)
+	}
 
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	return ctx.JSON(http.StatusCreated, dto.NotificationsResponse{
+
+	return ctx.JSON(http.StatusOK, dto.NotificationsResponse{
 		Notifications: lo.Map(notifications, func(n entity.Notification, _ int) dto.Notification {
 			return dto.Notification{
 				ID:        n.ID,
@@ -45,6 +71,7 @@ func (h *handler) Handle(ctx echo.Context, in Request) error {
 				Type:      string(n.Type),
 				Title:     n.Title,
 				Body:      n.Body,
+				ActionURL: n.ActionURL,
 				IsRead:    n.IsRead,
 				CreatedAt: n.CreatedAt,
 				ReadAt:    n.ReadAt,

@@ -50,6 +50,7 @@ func (c *Consumer) Run(ctx context.Context) error {
 				event.Payload.BookingID,
 				event.Payload.UserID,
 				event.Payload.PlaceID,
+				event.Payload.PlaceLabel,
 				event.Payload.StartTime,
 				event.Payload.EndTime,
 			)

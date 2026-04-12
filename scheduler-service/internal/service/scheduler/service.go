@@ -37,14 +37,19 @@ func New(
 func (s *SchedulerService) HandleCreatedBooking(
 	ctx context.Context,
 	bookingID, userID, placeID uuid.UUID,
+	placeLabel string,
 	startTime, endTime time.Time,
 ) error {
 
 	logrus.Infof("Handling booking created: %s", bookingID)
 
 	reminderTimer := entity.Timer{
-		BookingID: bookingID,
-		UserID:    &userID,
+		BookingID:  bookingID,
+		UserID:     &userID,
+		PlaceID:    &placeID,
+		PlaceLabel: &placeLabel,
+		StartTime:  &startTime,
+		EndTime:    &endTime,
 
 		Type: entity.TimerType{
 			ID:   entity.TimerTypeBookingReminderID,
@@ -54,8 +59,12 @@ func (s *SchedulerService) HandleCreatedBooking(
 	}
 
 	expireTimer := entity.Timer{
-		BookingID: bookingID,
-		UserID:    &userID,
+		BookingID:  bookingID,
+		UserID:     &userID,
+		PlaceID:    &placeID,
+		PlaceLabel: &placeLabel,
+		StartTime:  &startTime,
+		EndTime:    &endTime,
 
 		Type: entity.TimerType{
 			ID:   entity.TimerTypeBookingExpireID,

@@ -12,8 +12,13 @@ type rawTimer struct {
 
 	TimerTypeID int16 `db:"timer_type_id"`
 
-	BookingID uuid.UUID  `db:"booking_id"`
-	UserID    *uuid.UUID `db:"user_id"`
+	BookingID  uuid.UUID  `db:"booking_id"`
+	UserID     *uuid.UUID `db:"user_id"`
+	PlaceID    *uuid.UUID `db:"place_id"`
+	PlaceLabel *string    `db:"place_label"`
+
+	StartTime *time.Time `db:"start_time"`
+	EndTime   *time.Time `db:"end_time"`
 
 	TriggerAt time.Time `db:"trigger_at"`
 
@@ -31,8 +36,12 @@ func (r rawTimer) toEntity() entity.Timer {
 	return entity.Timer{
 		ID: r.ID,
 
-		BookingID: r.BookingID,
-		UserID:    r.UserID,
+		BookingID:  r.BookingID,
+		UserID:     r.UserID,
+		PlaceID:    r.PlaceID,
+		PlaceLabel: r.PlaceLabel,
+		StartTime:  r.StartTime,
+		EndTime:    r.EndTime,
 
 		Type: entity.TimerType{
 			ID: entity.TimerID(r.TimerTypeID),

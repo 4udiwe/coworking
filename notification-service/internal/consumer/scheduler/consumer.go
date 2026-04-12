@@ -55,8 +55,11 @@ func (c *Consumer) Run(ctx context.Context) error {
 				Type:   entity.BookingReminderNotificationType,
 				UserID: event.Payload.UserID,
 				Payload: map[string]any{
-					"placeId":   event.Payload.PlaceID,
-					"startTime": event.Payload.StartTime,
+					"bookingId":   event.Payload.BookingID,
+					"placeId":     event.Payload.PlaceID,
+					"placeLabel":  event.Payload.PlaceLabel,
+					"startTime":   event.Payload.StartTime,
+					"endTime":     event.Payload.EndTime,
 				},
 			}
 			notification, err := c.builder.Build(builderEvent)

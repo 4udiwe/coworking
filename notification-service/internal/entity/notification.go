@@ -32,7 +32,8 @@ type Notification struct {
 	Title string
 	Body  string
 
-	Payload []byte
+	Payload   []byte
+	ActionURL *string
 
 	IsRead bool
 

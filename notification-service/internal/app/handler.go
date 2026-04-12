@@ -3,7 +3,9 @@ package app
 import (
 	"github.com/4udiwe/coworking/notification-service/internal/api"
 	"github.com/4udiwe/coworking/notification-service/internal/api/get_notifications"
+	"github.com/4udiwe/coworking/notification-service/internal/api/get_unread_count"
 	"github.com/4udiwe/coworking/notification-service/internal/api/patch_notification"
+	"github.com/4udiwe/coworking/notification-service/internal/api/patch_notifications_read_all"
 	"github.com/4udiwe/coworking/notification-service/internal/api/post_device"
 )
 
@@ -15,12 +17,20 @@ func (app *App) GetNotificationsHandler() api.Handler {
 	return app.getNotificationsHandler
 }
 
+func (app *App) GetUnreadCountHandler() api.Handler {
+	return get_unread_count.New(app.NotificationService())
+}
+
 func (app *App) PatchNotificationHandler() api.Handler {
 	if app.patchNotificationHandler != nil {
 		return app.patchNotificationHandler
 	}
 	app.patchNotificationHandler = patch_notification.New(app.NotificationService())
 	return app.patchNotificationHandler
+}
+
+func (app *App) PatchNotificationsReadAllHandler() api.Handler {
+	return patch_notifications_read_all.New(app.NotificationService())
 }
 
 func (app *App) PostDeviceHandler() api.Handler {

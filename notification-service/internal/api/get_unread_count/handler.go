@@ -1,4 +1,4 @@
-package patch_notification
+package get_unread_count
 
 import (
 	"net/http"
@@ -6,6 +6,7 @@ import (
 	"github.com/4udiwe/coworking/auth-service/pkg/decorator"
 	"github.com/4udiwe/coworking/notification-service/internal/api"
 	"github.com/4udiwe/coworking/notification-service/internal/api/dto"
+	"github.com/4udiwe/coworking/notification-service/internal/api/middleware"
 	"github.com/labstack/echo/v4"
 )
 
@@ -17,14 +18,22 @@ func New(notificationService NotificationService) api.Handler {
 	return decorator.NewBindAndValidateDerocator(&handler{s: notificationService})
 }
 
-type Request = dto.MarkNotificationReadRequest
+type Request struct{}
 
 func (h *handler) Handle(ctx echo.Context, in Request) error {
 
-	err := h.s.MarkRead(ctx.Request().Context(), in.NotificationID)
+	claims, err := middleware.GetUserFromContext(ctx)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+	}
+
+	count, err := h.s.GetUnreadCount(ctx.Request().Context(), claims.UserID)
 
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	return ctx.NoContent(http.StatusAccepted)
+
+	return ctx.JSON(http.StatusOK, dto.UnreadCountResponse{
+		UnreadCount: count,
+	})
 }

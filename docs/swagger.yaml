@@ -443,21 +443,73 @@ paths:
   /notifications:
     get:
       tags: [Notifications]
-      summary: Получить непрочитанные уведомления
+      summary: Получить уведомления с фильтрацией
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+          description: Количество уведомлений для получения
+        - in: query
+          name: offset
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Смещение для пагинации
+        - in: query
+          name: isRead
+          required: false
+          schema:
+            type: boolean
+          description: Фильтр по статусу прочитанности (true=прочитанные, false=непрочитанные)
+        - in: query
+          name: since
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Получить уведомления, созданные после указанной даты (ISO 8601)
+      responses:
+        "200":
+          description: Список уведомлений
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationsResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /notifications/unread-count:
+    get:
+      tags: [Notifications]
+      summary: Получить количество непрочитанных уведомлений
       security:
         - bearerAuth: []
       responses:
         "200":
-          description: Список непрочитанных уведомлений (лимит 10)
+          description: Количество непрочитанных уведомлений
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  notifications:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/Notification"
+                $ref: "#/components/schemas/UnreadCountResponse"
         "401":
           description: Unauthorized
           content:
@@ -523,9 +575,36 @@ paths:
           schema:
             type: string
             format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
       responses:
         "200":
           description: Notification marked as read
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /notifications/read-all:
+    patch:
+      tags: [Notifications]
+      summary: Отметить все уведомления прочитанными
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: All notifications marked as read
         "401":
           description: Unauthorized
           content:
@@ -1042,7 +1121,7 @@ components:
           format: uuid
         type:
           type: string
-          description: Notification type (e.g., booking, alert)
+          description: Notification type (e.g., booking_created, booking_cancelled, etc.)
         title:
           type: string
         body:
@@ -1050,6 +1129,23 @@ components:
         payload:
           type: object
           nullable: true
+          description: |
+            Standardized notification payload with type and booking details:
+            {
+              "type": "booking",
+              "bookingId": "uuid",
+              "placeId": "uuid",
+              "placeLabel": "Meeting Room A",
+              "startTime": "2026-04-03T10:00:00Z",
+              "startTimeFormatted": "10:00",
+              "endTime": "2026-04-03T18:00:00Z",
+              "endTimeFormatted": "18:00",
+              "extra": {}
+            }
+        actionUrl:
+          type: string
+          nullable: true
+          description: URL to open on notification click (e.g., /bookings/{bookingId})
         isRead:
           type: boolean
         createdAt:
@@ -1059,6 +1155,22 @@ components:
           type: string
           format: date-time
           nullable: true
+
+    NotificationsResponse:
+      type: object
+      properties:
+        notifications:
+          type: array
+          items:
+            $ref: "#/components/schemas/Notification"
+
+    UnreadCountResponse:
+      type: object
+      properties:
+        unreadCount:
+          type: integer
+          minimum: 0
+          description: Number of unread notifications for current user
 
     RefreshTokenRequest:
       type: object

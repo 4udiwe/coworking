@@ -12,6 +12,10 @@ type NotificationsResponse struct {
 	Notifications []Notification `json:"notifications"`
 }
 
+type UnreadCountResponse struct {
+	UnreadCount int `json:"unreadCount"`
+}
+
 type Notification struct {
 	ID        uuid.UUID  `json:"id"`
 	UserID    uuid.UUID  `json:"userId"`
@@ -19,6 +23,7 @@ type Notification struct {
 	Title     string     `json:"title"`
 	Body      string     `json:"body"`
 	Payload   []byte     `json:"payload"`
+	ActionURL *string    `json:"actionUrl,omitempty"`
 	IsRead    bool       `json:"isRead"`
 	CreatedAt time.Time  `json:"createdAt"`
 	ReadAt    *time.Time `json:"readAt,omitempty"`
@@ -31,5 +36,13 @@ type RegisterDeviceRequest struct {
 }
 
 type MarkNotificationReadRequest struct {
-	NotificationID uuid.UUID `json:"notificationId" validate:"required"`
+	NotificationID uuid.UUID `param:"notificationId" validate:"required"`
+}
+
+// Query parameters for fetching notifications
+type GetNotificationsQuery struct {
+	Limit  int       `query:"limit" validate:"required,min=1,max=100"`
+	Offset int       `query:"offset" validate:"min=0"`
+	IsRead *bool     `query:"isRead"`
+	Since  *time.Time `query:"since"`
 }

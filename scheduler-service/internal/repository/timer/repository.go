@@ -33,6 +33,10 @@ func (r *TimerRepository) Create(
 			"timer_type_id",
 			"booking_id",
 			"user_id",
+			"place_id",
+			"place_label",
+			"start_time",
+			"end_time",
 			"trigger_at",
 			"payload",
 		).
@@ -40,6 +44,10 @@ func (r *TimerRepository) Create(
 			timer.Type.ID,
 			timer.BookingID,
 			timer.UserID,
+			timer.PlaceID,
+			timer.PlaceLabel,
+			timer.StartTime,
+			timer.EndTime,
 			timer.TriggerAt,
 			timer.Payload,
 		).

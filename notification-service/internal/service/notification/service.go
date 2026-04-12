@@ -2,13 +2,12 @@ package notification_service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/4udiwe/avito-pvz/pkg/transactor"
 	"github.com/4udiwe/coworking/notification-service/internal/entity"
 	notification_repository "github.com/4udiwe/coworking/notification-service/internal/repository/notification"
-	"github.com/4udiwe/coworking/notification-service/internal/sender"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 )
@@ -17,7 +16,7 @@ type NotificationService struct {
 	notificationRepo NotificationRepository
 	deviceRepo       DeviceRepository
 	outboxRepo       OutboxRepository
-	sender           PushSender
+	pushService      PushService
 
 	txManager transactor.Transactor
 }
@@ -26,7 +25,7 @@ func New(
 	notificationRepo NotificationRepository,
 	deviceRepo DeviceRepository,
 	outboxRepo OutboxRepository,
-	sender PushSender,
+	pushService PushService,
 	txManager transactor.Transactor,
 ) *NotificationService {
 
@@ -34,7 +33,7 @@ func New(
 		notificationRepo: notificationRepo,
 		deviceRepo:       deviceRepo,
 		outboxRepo:       outboxRepo,
-		sender:           sender,
+		pushService:      pushService,
 		txManager:        txManager,
 	}
 }
@@ -67,7 +66,7 @@ func (s *NotificationService) RegisterDevice(
 	return nil
 }
 
-func (s NotificationService) NotifyUser(ctx context.Context, notificationID uuid.UUID) error {
+func (s *NotificationService) NotifyUser(ctx context.Context, notificationID uuid.UUID) error {
 	logrus.WithField("notification_id", notificationID).Info("notifying user")
 
 	notification, err := s.notificationRepo.GetByID(ctx, notificationID)
@@ -79,55 +78,15 @@ func (s NotificationService) NotifyUser(ctx context.Context, notificationID uuid
 		return ErrCannotFetchNotification
 	}
 
-	devices, err := s.deviceRepo.FindByUserID(ctx, notification.UserID)
+	err = s.pushService.SendToUser(ctx, notification.UserID, notification)
 	if err != nil {
-		logrus.WithError(err).Error("failed to fetch user devices")
+		logrus.WithError(err).Error("failed to send push notification")
+		return err
 	}
 
-	for _, d := range devices {
-		logrus.WithFields(logrus.Fields{
-			"device":  d.Platform,
-			"user_id": d.UserID,
-			"title":   notification.Title,
-		}).Debug("notifying user device")
-
-		var payloadMap map[string]string
-		json.Unmarshal(notification.Payload, &payloadMap)
-		err = s.sender.Send(ctx, sender.PushMessage{
-			Token: d.DeviceToken,
-			Title: notification.Title,
-			Body:  notification.Body,
-			Data:  payloadMap,
-		})
-
-		if err != nil {
-			if errors.Is(err, sender.ErrInvalidToken) {
-				logrus.WithField("device", d.Platform).Warn("invalid token found")
-				deleteErr := s.deviceRepo.DeleteByToken(ctx, d.DeviceToken)
-				if deleteErr != nil {
-					logrus.WithField("device_token", d.DeviceToken).Warn("failed to delete invalid token")
-				}
-				continue
-			}
-			logrus.WithError(err).WithField("device", d.UserID).Error("failed to notify user device")
-		}
-	}
-	logrus.WithField("notification_id", notificationID).Info("notifying user")
-
+	logrus.WithField("notification_id", notificationID).Info("user notified successfully")
 	return nil
 }
-
-// func (s *NotificationService) GetUserDevices(ctx context.Context, userID uuid.UUID) ([]entity.UserDevice, error) {
-// 	logrus.WithField("user_id", userID.String()).Info("fetching user devices")
-
-// 	devices, err := s.deviceRepo.FindByUserID(ctx, userID)
-// 	if err != nil {
-// 		logrus.WithError(err).Error("failed to fetch user devices")
-// 	}
-
-// 	logrus.WithField("devices_number", len(devices)).Info("devices fetched")
-// 	return devices, nil
-// }
 
 func (s *NotificationService) CreateNotification(
 	ctx context.Context,
@@ -222,12 +181,78 @@ func (s *NotificationService) FetchUnreadNotifications(ctx context.Context, user
 	return notifications, nil
 }
 
-// func (s *NotificationService) GetNotificationByID(
-// 	ctx context.Context,
-// 	notificationID uuid.UUID,
-// ) (entity.Notification, error) {
-// 	logrus.WithField("notification_id", notificationID.String()).Info("fetching notification")
+func (s *NotificationService) FetchNotifications(
+	ctx context.Context,
+	userID uuid.UUID,
+	limit, offset int,
+	isRead *bool,
+) ([]entity.Notification, error) {
+	logrus.WithFields(logrus.Fields{
+		"user_id": userID.String(),
+		"limit":   limit,
+		"offset":  offset,
+		"isRead":  isRead,
+	}).Info("fetching notifications for user")
 
-// 	logrus.WithField("notification_id", notificationID.String()).Info("notification fetched")
-// 	return notification, nil
-// }
+	notifications, err := s.notificationRepo.FetchByUser(ctx, userID, limit, offset, isRead)
+	if err != nil {
+		logrus.WithError(err).Error("failed to fetch notifications")
+		return nil, ErrCannotFetchNotification
+	}
+
+	logrus.WithField("number", len(notifications)).Info("notifications fetched")
+	return notifications, nil
+}
+
+func (s *NotificationService) MarkAllRead(ctx context.Context, userID uuid.UUID) error {
+	logrus.WithField("user_id", userID.String()).Info("marking all notifications as read")
+
+	err := s.notificationRepo.MarkAllRead(ctx, userID)
+	if err != nil {
+		logrus.WithError(err).Error("failed to mark all notifications as read")
+		return ErrCannotMarkRead
+	}
+
+	logrus.WithField("user_id", userID.String()).Info("all notifications marked as read")
+	return nil
+}
+
+func (s *NotificationService) GetUnreadCount(ctx context.Context, userID uuid.UUID) (int, error) {
+	logrus.WithField("user_id", userID.String()).Info("fetching unread notification count")
+
+	count, err := s.notificationRepo.GetUnreadCount(ctx, userID)
+	if err != nil {
+		logrus.WithError(err).Error("failed to fetch unread count")
+		return 0, ErrCannotFetchNotification
+	}
+
+	logrus.WithFields(logrus.Fields{
+		"user_id": userID.String(),
+		"count":   count,
+	}).Info("unread count fetched")
+
+	return count, nil
+}
+
+func (s *NotificationService) FetchNotificationsAfterDate(
+	ctx context.Context,
+	userID uuid.UUID,
+	since time.Time,
+	limit, offset int,
+) ([]entity.Notification, error) {
+	logrus.WithFields(logrus.Fields{
+		"user_id": userID.String(),
+		"since":   since,
+		"limit":   limit,
+		"offset":  offset,
+	}).Info("fetching notifications after date")
+
+	notifications, err := s.notificationRepo.FetchAfterDate(ctx, userID, since, limit, offset)
+	if err != nil {
+		logrus.WithError(err).Error("failed to fetch notifications after date")
+		return nil, ErrCannotFetchNotification
+	}
+
+	logrus.WithField("number", len(notifications)).Info("notifications after date fetched")
+	return notifications, nil
+}

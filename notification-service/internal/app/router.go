@@ -32,7 +32,9 @@ func (app *App) configureRouter(handler *echo.Echo) {
 	notificationGroup := handler.Group("/notifications")
 	{
 		notificationGroup.GET("", app.GetNotificationsHandler().Handle)
-		notificationGroup.PATCH("", app.PatchNotificationHandler().Handle)
+		notificationGroup.GET("/unread-count", app.GetUnreadCountHandler().Handle)
+		notificationGroup.PATCH("/:notificationID", app.PatchNotificationHandler().Handle)
+		notificationGroup.PATCH("/read-all", app.PatchNotificationsReadAllHandler().Handle)
 	}
 
 	deviceGroup := handler.Group("/device")

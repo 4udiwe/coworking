@@ -38,8 +38,12 @@ type Timer struct {
 
 	Type TimerType
 
-	BookingID uuid.UUID
-	UserID    *uuid.UUID
+	BookingID  uuid.UUID
+	UserID     *uuid.UUID
+	PlaceID    *uuid.UUID
+	PlaceLabel *string
+	StartTime  *time.Time
+	EndTime    *time.Time
 
 	TriggerAt time.Time
 

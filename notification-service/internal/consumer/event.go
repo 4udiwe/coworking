@@ -14,7 +14,7 @@ const (
 	BookingCancelled EventType = "booking.cancelled"
 	BookingCompleted EventType = "booking.completed"
 
-	ReminderTriggered EventType = "reminder.triggerred"
+	ReminderTriggered EventType = "reminder.triggered"
 
 	NotificationCreated EventType = "notification.created"
 )
@@ -34,6 +34,7 @@ type Payload struct {
 	NotificationType string    `json:"notificataionType,omitempty"`
 	UserID           uuid.UUID `json:"userId,omitempty"`
 	PlaceID          uuid.UUID `json:"placeId,omitempty"`
+	PlaceLabel       string    `json:"placeLabel,omitempty"`
 	StartTime        time.Time `json:"startTime,omitzero"`
 	EndTime          time.Time `json:"endTime,omitzero"`
 	Reason           string    `json:"reason,omitempty"`
