@@ -8,6 +8,8 @@ import (
 	"github.com/google/uuid"
 )
 
+//go:generate go tool mockgen -source=contracts.go -destination=mocks/mocks.go -package=mocks
+
 type BookingRepository interface {
 	Create(ctx context.Context, booking entity.Booking) (uuid.UUID, error)
 	GetByID(ctx context.Context, id uuid.UUID) (entity.Booking, error)
