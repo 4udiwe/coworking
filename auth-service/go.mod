@@ -3,9 +3,12 @@ module github.com/4udiwe/coworking/auth-service
 go 1.25.6
 
 require (
+	github.com/4udiwe/avito-pvz v0.0.0-20250909122805-a4429f441e91
+	github.com/4udiwe/big-bob-pizza/order-service v0.0.0-20260402174529-80484f6dd50e
+	github.com/4udiwe/subscription-service v0.0.0-20250926111022-621d5c5c51e1
 	github.com/Masterminds/squirrel v1.5.4
 	github.com/google/uuid v1.6.0
-	github.com/jackc/pgx/v5 v5.8.0
+	github.com/jackc/pgx/v5 v5.9.1
 	github.com/labstack/gommon v0.4.2
 	github.com/sirupsen/logrus v1.9.3
 	go.uber.org/mock v0.6.0
@@ -21,7 +24,6 @@ require (
 	github.com/go-playground/validator/v10 v10.27.0 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
-	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/lann/builder v0.0.0-20180802200727-47ae307949d0 // indirect
 	github.com/lann/ps v0.0.0-20150810152359-62de8c46ede0 // indirect
@@ -45,9 +47,6 @@ require (
 )
 
 require (
-	github.com/4udiwe/avito-pvz v0.0.0-20250909122805-a4429f441e91
-	github.com/4udiwe/big-bob-pizza/order-service v0.0.0-20251219214901-41e245f172ab
-	github.com/4udiwe/subscription-service v0.0.0-20250926111022-621d5c5c51e1
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 	github.com/jackc/pgerrcode v0.0.0-20250907135507-afb5586c32a6

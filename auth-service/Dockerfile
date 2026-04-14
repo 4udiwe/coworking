@@ -16,6 +16,8 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 # Step 3: Final
 FROM alpine:3.22
 
+RUN apk add --no-cache curl
+
 COPY --from=builder /app/config /config
 COPY --from=builder /app/auth-service /app/auth-service
 COPY --from=builder /app/internal/database/migrations /app/database/migrations

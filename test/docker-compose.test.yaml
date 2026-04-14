@@ -1,0 +1,130 @@
+version: "3.9"
+
+services:
+  # PostgreSQL for Auth Service
+  postgres_auth_test:
+    image: postgres:15
+    container_name: postgres_auth_test
+    environment:
+      POSTGRES_USER: authuser
+      POSTGRES_PASSWORD: authpass
+      POSTGRES_DB: authdb
+    volumes:
+      - postgres_auth_test_data:/var/lib/postgresql/data
+      - ./init/auth-seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U authuser -d authdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - test-network
+
+  # PostgreSQL for Booking Service
+  postgres_booking_test:
+    image: postgres:15
+    container_name: postgres_booking_test
+    environment:
+      POSTGRES_USER: bookinguser
+      POSTGRES_PASSWORD: bookingpass
+      POSTGRES_DB: bookingdb
+    volumes:
+      - postgres_booking_test_data:/var/lib/postgresql/data
+      - ./init/booking-seed.sql:/docker-entrypoint-initdb.d/02-seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bookinguser -d bookingdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - test-network
+
+  # Auth Service
+  auth-service:
+    build:
+      context: ../auth-service
+      dockerfile: Dockerfile
+    container_name: auth-service-test
+    environment:
+      CONFIG_PATH: /test/auth-config.yaml
+      POSTGRES_URL: "postgres://authuser:authpass@postgres_auth_test:5432/authdb"
+      POSTGRES_CONNECT_TIMEOUT: "5s"
+      AUTH_PRIVATE_KEY_PATH: "/app/keys/private.pem"
+      AUTH_ACCESS_TOKEN_TTL: "15m"
+      AUTH_REFRESH_TOKEN_TTL: "168h"
+      HASHER_COST: "4"
+      KAFKA_BROKERS: "kafka:9092"
+    depends_on:
+      postgres_auth_test:
+        condition: service_healthy
+    ports:
+      - "8081:8080"
+    networks:
+      - test-network
+    volumes:
+      - ./auth-config.yaml:/test/auth-config.yaml
+      - ../auth-service/keys:/app/keys
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 15s
+      retries: 30
+
+  # Booking Service
+  booking-service:
+    build:
+      context: ../booking-service
+      dockerfile: Dockerfile
+    container_name: booking-service-test
+    environment:
+      CONFIG_PATH: /test/booking-config.yaml
+      POSTGRES_URL: "postgres://bookinguser:bookingpass@postgres_booking_test:5432/bookingdb"
+      POSTGRES_CONNECT_TIMEOUT: "5s"
+      AUTH_PUBLIC_KEY_PATH: "/app/keys/public.pem"
+      KAFKA_BROKERS: \"localhost:9092\"
+      KAFKA_SCHEDULER_EVENTS: "scheduler.events"
+      KAFKA_PRODUCER_REQUIRED_ACKS: "1"
+      KAFKA_PRODUCER_BATCH_SIZE: "5"
+      KAFKA_PRODUCER_BATCH_TIMEOUT: "50ms"
+      KAFKA_PRODUCER_COMPRESSION: "snappy"
+      KAFKA_CONSUMER_GROUP_ID: "booking-service"
+      OUTBOX_PUB_TOPIC: "booking.events"
+      OUTBOX_BATCH_LIMIT: "5"
+      OUTBOX_INTERVAL: "3s"
+    depends_on:
+      postgres_booking_test:
+        condition: service_healthy
+    ports:
+      - "8082:8080"
+    networks:
+      - test-network
+    volumes:
+      - ./booking-config.yaml:/test/booking-config.yaml
+      - ../booking-service/keys:/app/keys
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+
+  # Test runner
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: integration-test-runner
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      booking-service:
+        condition: service_healthy
+    networks:
+      - test-network
+
+networks:
+  test-network:
+    driver: bridge
+
+volumes:
+  postgres_auth_test_data:
+  postgres_booking_test_data:

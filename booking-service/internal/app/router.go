@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/4udiwe/avito-pvz/pkg/validator"
 	"github.com/4udiwe/cowoking/booking-service/internal/api/middleware"
@@ -29,7 +30,20 @@ func (app *App) EchoHandler() *echo.Echo {
 }
 
 func (app *App) configureRouter(handler *echo.Echo) {
-	handler.Use(app.AuthMiddleware().Middleware)
+	// Health check endpoint (no auth required)
+	handler.GET("/health", func(c echo.Context) error { return c.NoContent(http.StatusOK) })
+
+	// Auth middleware with skipper for /health
+	authMiddleware := app.AuthMiddleware()
+	handler.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			// Skip auth for /health endpoint
+			if strings.HasPrefix(c.Request().URL.Path, "/health") {
+				return next(c)
+			}
+			return authMiddleware.Middleware(next)(c)
+		}
+	})
 
 	// Public coworking and layout endpoints
 	coworkingGroup := handler.Group("/coworkings")
@@ -83,6 +97,4 @@ func (app *App) configureRouter(handler *echo.Echo) {
 			adminBookingsGroup.DELETE("/:bookingId", app.DeleteBookingHandler().Handle)
 		}
 	}
-
-	handler.GET("/health", func(c echo.Context) error { return c.NoContent(http.StatusOK) })
 }
