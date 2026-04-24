@@ -1,0 +1,421 @@
+version: "3.9"
+name: cowokring
+
+services:
+  postgres_auth:
+    image: postgres:15
+    container_name: postgres_auth
+    environment:
+      POSTGRES_USER: ${AUTH_DB_USER:-authuser}
+      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD:-authpass}
+      POSTGRES_DB: ${AUTH_DB_NAME:-authdb}
+    volumes:
+      - postgres_auth_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${AUTH_DB_USER:-authuser} -d ${AUTH_DB_NAME:-authdb}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app-network
+
+  postgres_booking:
+    image: postgres:15
+    container_name: postgres_booking
+    environment:
+      POSTGRES_USER: ${BOOKING_DB_USER:-bookinguser}
+      POSTGRES_PASSWORD: ${BOOKING_DB_PASSWORD:-bookingpass}
+      POSTGRES_DB: ${BOOKING_DB_NAME:-bookingdb}
+    volumes:
+      - postgres_booking_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${BOOKING_DB_USER:-bookinguser} -d ${BOOKING_DB_NAME:-bookingdb}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app-network
+
+  postgres_scheduler:
+    image: postgres:15
+    container_name: postgres_scheduler
+    environment:
+      POSTGRES_USER: ${SCHEDULER_DB_USER:-scheduleruser}
+      POSTGRES_PASSWORD: ${SCHEDULER_DB_PASSWORD:-schedulerpass}
+      POSTGRES_DB: ${SCHEDULER_DB_NAME:-schedulerdb}
+    volumes:
+      - postgres_scheduler_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${SCHEDULER_DB_USER:-SCHEDULER_DB_USER} -d ${SCHEDULER_DB_NAME:-schedulerdb}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app-network
+
+  postgres_notification:
+    image: postgres:15
+    container_name: postgres_notification
+    environment:
+      POSTGRES_USER: ${NOTIFICATION_DB_USER:-notificationuser}
+      POSTGRES_PASSWORD: ${NOTIFICATION_DB_PASSWORD:-notificationpass}
+      POSTGRES_DB: ${NOTIFICATION_DB_NAME:-notificationdb}
+    volumes:
+      - postgres_notification_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${NOTIFICATION_DB_USER:-NOTIFICATION_DB_USER} -d ${NOTIFICATION_DB_NAME:-notificationdb}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app-network
+
+  clickhouse_analytics:
+    image: clickhouse/clickhouse-server:24
+    container_name: clickhouse_analytics
+    environment:
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-analytics}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-analyticsuser}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-analyticspass}
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./clickhouse/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app-network
+
+  clickhouse_ui:
+    image: ghcr.io/caioricciuti/ch-ui:latest
+    container_name: clickhouse_ui
+    ports:
+      - "3488:3488"
+    environment:
+      CLICKHOUSE_URL: http://clickhouse_analytics:8123
+    depends_on:
+      clickhouse_analytics:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    env_file:
+      - ./auth-service/.env
+    container_name: auth_service
+    depends_on:
+      postgres_auth:
+        condition: service_healthy
+    environment:
+      # Postgres connection
+      POSTGRES_URL: "postgres://${AUTH_DB_USER:-authuser}:${AUTH_DB_PASSWORD:-authpass}@postgres_auth:5432/${AUTH_DB_NAME:-authdb}?sslmode=disable"
+      # Redis connection
+      # Config path
+      CONFIG_PATH: "/config/config.yaml"
+      # Server port
+      SERVER_PORT: "${AUTH_SERVER_PORT:-8080}"
+      # Keys
+      AUTH_PRIVATE_KEY_PATH: "/app/keys/private.pem"
+    volumes:
+      - ./auth-service/config:/config:ro
+      - ./auth-service/keys:/app/keys:ro
+    networks:
+      - app-network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://localhost:${AUTH_SERVER_PORT:-8080}/health || exit 1",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    labels:
+      - app=auth
+      - env=prod
+
+  booking-service:
+    build:
+      context: ./booking-service
+      dockerfile: Dockerfile
+    env_file:
+      - ./booking-service/.env
+    container_name: booking_service
+    depends_on:
+      postgres_booking:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    environment:
+      # Postgres connection
+      POSTGRES_URL: "postgres://${BOOKING_DB_USER:-bookinguser}:${BOOKING_DB_PASSWORD:-bookingpass}@postgres_booking:5432/${BOOKING_DB_NAME:-bookingdb}?sslmode=disable"
+      # Config path
+      CONFIG_PATH: "/config/config.yaml"
+      # Server port
+      SERVER_PORT: "${BOOKING_SERVER_PORT:-8081}"
+      # Keys
+      AUTH_PUBLIC_KEY_PATH: "/app/keys/public.pem"
+    volumes:
+      - ./booking-service/config:/config:ro
+      - ./booking-service/keys:/app/keys:ro
+    networks:
+      - app-network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://localhost:${BOOKING_SERVER_PORT:-8081}/health || exit 1",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    labels:
+      - app=booking
+      - env=prod
+
+  scheduler-service:
+    build:
+      context: ./scheduler-service
+      dockerfile: Dockerfile
+    env_file:
+      - ./scheduler-service/.env
+    container_name: scheduler_service
+    depends_on:
+      postgres_scheduler:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    environment:
+      # Postgres connection
+      POSTGRES_URL: "postgres://${SCHEDULER_DB_USER:-scheduleruser}:${SCHEDULER_DB_PASSWORD:-schedulerpass}@postgres_scheduler:5432/${SCHEDULER_DB_NAME:-schedulerdb}?sslmode=disable"
+      # Config path
+      CONFIG_PATH: "/config/config.yaml"
+    volumes:
+      - ./scheduler-service/config:/config:ro
+    networks:
+      - app-network
+    labels:
+      - app=scheduler
+      - env=prod
+
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    env_file:
+      - ./notification-service/.env
+    container_name: notification_service
+    depends_on:
+      postgres_notification:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    environment:
+      # Postgres connection
+      POSTGRES_URL: "postgres://${NOTIFICATION_DB_USER:-notificationuser}:${NOTIFICATION_DB_PASSWORD:-notificationpass}@postgres_notification:5432/${NOTIFICATION_DB_NAME:-notificationdb}?sslmode=disable"
+      # Config path
+      CONFIG_PATH: "/config/config.yaml"
+      # Keys
+      AUTH_PUBLIC_KEY_PATH: "/app/keys/public.pem"
+      # Server port
+      SERVER_PORT: "${NOTIFICATION_SERVER_PORT:-8082}"
+    volumes:
+      - ./notification-service/config:/config:ro
+      - ./notification-service/keys:/app/keys:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://localhost:${NOTIFICATION_SERVER_PORT:-8082}/health || exit 1",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks:
+      - app-network
+    labels:
+      - app=notification
+      - env=prod
+
+  analytics-service:
+    build:
+      context: ./analytics-service
+      dockerfile: Dockerfile
+    env_file:
+      - ./analytics-service/.env
+    container_name: analytics_service
+    depends_on:
+      clickhouse_analytics:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    environment:
+      # Config path
+      CONFIG_PATH: "/config/config.yaml"
+      # Server port
+      SERVER_PORT: "${ANALYTICS_SERVER_PORT:-8083}"
+    volumes:
+      - ./analytics-service/config:/config:ro
+      - ./analytics-service/keys:/app/keys:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://localhost:${ANALYTICS_SERVER_PORT:-8083}/health || exit 1",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks:
+      - app-network
+    labels:
+      - app=analytics
+      - env=prod
+
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    container_name: gateway
+    depends_on:
+      - booking-service
+      - auth-service
+      - notification-service
+      - analytics-service
+    volumes:
+      - ./gateway/config:/config:ro
+    ports:
+      - "${GATEWAY_SERVER_PORT:-8080}:8080"
+    networks:
+      - app-network
+    labels:
+      - app=gateway
+      - env=prod
+
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: loki
+    command: -config.file=/mnt/config/loki-config.yaml
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki-config.yaml:/mnt/config/loki-config.yaml:ro
+      - loki_data:/loki
+    networks:
+      - app-network
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    container_name: promtail
+    command: -config.file=/mnt/config/promtail-config.yaml
+    depends_on:
+      - loki
+    volumes:
+      - ./promtail-config.yaml:/mnt/config/promtail-config.yaml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - app-network
+
+  grafana:
+    container_name: grafana
+    image: grafana/grafana-enterprise:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana-provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_INSTALL_PLUGINS=grafana-clickhouse-datasource
+    networks:
+      - app-network
+    depends_on:
+      - loki
+
+  # Zookeeper для Kafka
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - app-network
+
+  # Kafka
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      # Zookeeper
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      # LISTENERS — фактические порты, которые Kafka слушает
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
+      # ADVERTISED LISTENERS — как к ней подключаются клиенты
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9092
+      # mapping listener names
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      # автоматическое создание топиков при публикации
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      # Kafka internal settings
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    networks:
+      - app-network
+
+  # Kafka UI
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka_ui
+    depends_on:
+      - kafka
+    ports:
+      - "${KAFKA_UI_PORT:-8082}:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: "local"
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: "kafka:9092"
+      KAFKA_CLUSTERS_0_ZOOKEEPER: "zookeeper:2181"
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres_auth_data:
+  postgres_booking_data:
+  postgres_scheduler_data:
+  postgres_notification_data:
+  clickhouse_data:
+  grafana_data:
+  loki_data:
