@@ -56,7 +56,7 @@ func (b *DefaultBuilder) buildBookingCreated(event Event) (entity.Notification, 
 	bookingID := fmt.Sprintf("%v", event.Payload["bookingId"])
 
 	title := "Бронирование создано"
-	body := fmt.Sprintf("Рабочее место %s забронировано на %s", place, start)
+	body := fmt.Sprintf("Рабочее место %s забронировано", placeLabel)
 
 	// Create standardized payload
 	payload := StandardPayload{
@@ -103,7 +103,7 @@ func (b *DefaultBuilder) buildBookingCancelled(event Event) (entity.Notification
 	bookingID := fmt.Sprintf("%v", event.Payload["bookingId"])
 
 	title := "Бронирование отменено"
-	body := fmt.Sprintf("Бронирование рабочего места %s отменено", place)
+	body := fmt.Sprintf("Бронирование рабочего места %s отменено", placeLabel)
 
 	// Create standardized payload
 	payload := StandardPayload{
@@ -138,7 +138,7 @@ func (b *DefaultBuilder) buildBookingReminder(event Event) (entity.Notification,
 	bookingID := fmt.Sprintf("%v", event.Payload["bookingId"])
 
 	title := "Напоминание о бронировании"
-	body := fmt.Sprintf("Через 10 минут начинается бронирование места %s (%s)", place, start)
+	body := fmt.Sprintf("Через 10 минут начинается бронирование места %s", placeLabel)
 
 	// Create standardized payload
 	payload := StandardPayload{
@@ -175,7 +175,7 @@ func (b *DefaultBuilder) buildBookingExpired(event Event) (entity.Notification, 
 	bookingID := fmt.Sprintf("%v", event.Payload["bookingId"])
 
 	title := "Время бронирования истекло"
-	body := fmt.Sprintf("Бронирование места %s закончилось в %s", place, endTime)
+	body := fmt.Sprintf("Бронирование места %s подошло к концу", placeLabel)
 
 	// Create standardized payload
 	payload := StandardPayload{

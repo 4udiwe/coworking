@@ -15,14 +15,12 @@ type FirebaseSender struct {
 }
 
 func New(ctx context.Context, serviceAccountPath string) (*FirebaseSender, error) {
-
 	opt := option.WithCredentialsFile(serviceAccountPath)
 
 	app, err := firebase.NewApp(ctx, nil, opt)
 	if err != nil {
 		return nil, err
 	}
-
 	client, err := app.Messaging(ctx)
 	if err != nil {
 		return nil, err
@@ -36,6 +34,7 @@ func (s *FirebaseSender) Send(
 	ctx context.Context,
 	msg sender.PushMessage,
 ) error {
+	logrus.Debug("firebase: sending notification")
 
 	message := &messaging.Message{
 		Token: msg.Token,

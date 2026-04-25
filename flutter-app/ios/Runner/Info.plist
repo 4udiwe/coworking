@@ -45,6 +45,11 @@
 					<string>Main</string>
 				</dict>
 			</array>
+			<key>UIBackgroundModes</key>
+			<array>
+				<string>fetch</string>
+				<string>remote-notification</string>
+			</array>
 		</dict>
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

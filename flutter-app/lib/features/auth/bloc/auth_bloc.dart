@@ -1,5 +1,9 @@
+import 'dart:io';
+
 import 'package:bloc/bloc.dart';
 import 'package:coworking_app/core/models/auth_requests.dart';
+import 'package:coworking_app/core/services/fcm_service.dart';
+import 'package:flutter/foundation.dart';
 import '../../../core/storage/token_storage.dart';
 import '../data/auth_repository.dart';
 import '../data/jwt_parser.dart';
@@ -9,9 +13,13 @@ import 'auth_state.dart';
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final AuthRepository authRepository;
   final TokenStorage tokenStorage;
+  final FCMService? fcmService;
 
-  AuthBloc({required this.authRepository, required this.tokenStorage})
-    : super(AuthState()) {
+  AuthBloc({
+    required this.authRepository,
+    required this.tokenStorage,
+    this.fcmService,
+  }) : super(AuthState()) {
     on<AuthRegister>(_onRegister);
     on<AuthLogin>(_onLogin);
     on<AuthLogout>(_onLogout);
@@ -43,6 +51,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(
         state.copyWith(status: AuthStatus.authenticated, userClaims: claims),
       );
+      _registerFCMToken();
     } catch (e) {
       emit(state.copyWith(status: AuthStatus.failure, error: e.toString()));
     }
@@ -63,6 +72,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       emit(
         state.copyWith(status: AuthStatus.authenticated, userClaims: claims),
       );
+      _registerFCMToken();
     } catch (e) {
       emit(state.copyWith(status: AuthStatus.failure, error: e.toString()));
     }
@@ -155,6 +165,24 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       );
     } catch (_) {
       emit(const AuthState(status: AuthStatus.unauthenticated));
+    }
+  }
+
+  Future<void> _registerFCMToken() async {
+    if (kIsWeb) {
+      return;
+    }
+    if (!Platform.isAndroid && !Platform.isIOS) {
+      return;
+    }
+    if (fcmService == null) {
+      return;
+    }
+
+    try {
+      await fcmService!.registerToken();
+    } catch (e) {
+      print('FCM token register failed: $e');
     }
   }
 }

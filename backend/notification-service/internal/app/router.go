@@ -35,11 +35,8 @@ func (app *App) configureRouter(handler *echo.Echo) {
 		notificationGroup.GET("/unread-count", app.GetUnreadCountHandler().Handle)
 		notificationGroup.PATCH("/:notificationID", app.PatchNotificationHandler().Handle)
 		notificationGroup.PATCH("/read-all", app.PatchNotificationsReadAllHandler().Handle)
-	}
 
-	deviceGroup := handler.Group("/device")
-	{
-		deviceGroup.POST("", app.PostDeviceHandler().Handle)
+		notificationGroup.POST("/device", app.PostDeviceHandler().Handle)
 	}
 
 	handler.GET("/health", func(c echo.Context) error { return c.NoContent(http.StatusOK) })
