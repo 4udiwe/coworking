@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "387404820150",
+    "project_id": "coworking-notifications",
+    "storage_bucket": "coworking-notifications.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:387404820150:android:7b1a7ee1dbdadfb7afc017",
+        "android_client_info": {
+          "package_name": "com.coworking.coworkingapp.coworking_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB6myxF0OP0YI80hszJZKDPQKf0_jm-UuM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

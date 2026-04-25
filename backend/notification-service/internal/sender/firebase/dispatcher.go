@@ -49,10 +49,21 @@ func (d *DefaultDispatcher) Dispatch(ctx context.Context, notification entity.No
 		return nil
 	}
 
-	var payloadMap map[string]string
-	if err := json.Unmarshal(notification.Payload, &payloadMap); err != nil {
-		logrus.WithError(err).Warn("failed to unmarshal notification payload")
-		payloadMap = make(map[string]string)
+	var rawMap map[string]interface{}
+	if err := json.Unmarshal(notification.Payload, &rawMap); err != nil {
+		logrus.WithField("payload", notification.Payload).WithError(err).Warn("failed to unmarshal notification payload")
+		rawMap = make(map[string]interface{})
+	}
+
+	payloadMap := make(map[string]string)
+	for k, v := range rawMap {
+		switch val := v.(type) {
+		case string:
+			payloadMap[k] = val
+		default:
+			b, _ := json.Marshal(val)
+			payloadMap[k] = string(b)
+		}
 	}
 
 	for _, device := range devices {

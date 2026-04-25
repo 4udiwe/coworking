@@ -24,9 +24,9 @@ class _NotificationScreenState extends State<NotificationScreen> {
     super.initState();
 
     // initial fetch
-    context.read<NotificationBloc>().add(
-      FetchNotifications(limit: _pageSize, offset: 0),
-    );
+    final bloc = context.read<NotificationBloc>();
+    bloc.add(FetchNotifications(limit: _pageSize, offset: 0));
+    bloc.add(FetchUnreadCount());
 
     // infinite scroll
     _scrollController.addListener(() {

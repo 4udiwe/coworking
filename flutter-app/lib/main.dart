@@ -1,8 +1,10 @@
 import 'dart:io';
 
+import 'package:coworking_app/core/services/fcm_service.dart';
 import 'package:coworking_app/features/auth/bloc/auth_event.dart';
 import 'package:coworking_app/features/auth/presentation/screens/auth_gate.dart';
 import 'package:coworking_app/features/notification/bloc/notification_bloc.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -14,11 +16,21 @@ import 'core/l10n/locale_provider.dart';
 import 'core/navigation/app_router.dart';
 import 'features/auth/bloc/auth_bloc.dart';
 import 'generated_l10n/app_localizations.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+
+  if (!kIsWeb) {
+    await Firebase.initializeApp();
+  }
 
   await init();
+
+  if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+    sl<FCMService>().initialize().catchError((e) {});
+  }
 
   await initializeDateFormatting('ru', null);
 

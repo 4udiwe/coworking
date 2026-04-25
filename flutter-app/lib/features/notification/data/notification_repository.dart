@@ -6,17 +6,13 @@ import '../model/notification.dart';
 class NotificationsResponse {
   final List<NotificationModel> notifications;
 
-  NotificationsResponse({
-    required this.notifications,
-  });
+  NotificationsResponse({required this.notifications});
 
   factory NotificationsResponse.fromJson(Map<String, dynamic> json) {
     final list = json['notifications'] as List;
 
     return NotificationsResponse(
-      notifications: list
-          .map((e) => NotificationModel.fromJson(e))
-          .toList(),
+      notifications: list.map((e) => NotificationModel.fromJson(e)).toList(),
     );
   }
 }
@@ -71,9 +67,7 @@ class NotificationRepository {
   /// MARK READ
   /// =======================
   Future<void> markRead(String notificationId) async {
-    final response = await apiClient.patch(
-      '/notifications/$notificationId',
-    );
+    final response = await apiClient.patch('/notifications/$notificationId');
 
     if (response.statusCode != 202) {
       throw Exception('Failed to mark notification as read');
@@ -100,10 +94,7 @@ class NotificationRepository {
   }) async {
     final response = await apiClient.post(
       '/notifications/device',
-      body: {
-        'deviceToken': token,
-        'platform': platform,
-      },
+      body: {'deviceToken': token, 'platform': platform},
     );
 
     if (response.statusCode != 201) {

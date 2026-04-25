@@ -15,20 +15,20 @@ class MarkAsRead extends NotificationEvent {
 
 class MarkAllRead extends NotificationEvent {}
 
-/// 🔁 polling
 class PollNotifications extends NotificationEvent {}
 
-/// 🔔 unread count
 class FetchUnreadCount extends NotificationEvent {}
 
-/// ✅ mark read
 class MarkNotificationRead extends NotificationEvent {
   final String id;
   MarkNotificationRead(this.id);
 }
 
-/// ✅ read all
 class MarkAllNotificationsRead extends NotificationEvent {}
 
-/// ❌ очистка snackbar
 class ClearAction extends NotificationEvent {}
+
+class FCMMessageReceived extends NotificationEvent {
+  final String? notificationId;
+  FCMMessageReceived({this.notificationId});
+}

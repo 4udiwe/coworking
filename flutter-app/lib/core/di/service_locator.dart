@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:coworking_app/core/models/auth_tokens.dart';
+import 'package:coworking_app/core/services/fcm_service.dart';
 import 'package:coworking_app/features/auth/bloc/auth_event.dart';
 import 'package:coworking_app/features/notification/bloc/notification_bloc.dart';
 import 'package:coworking_app/features/user/data/user_repository.dart';
@@ -28,13 +30,10 @@ import '../../features/analytics/bloc/analytics_bloc.dart';
 final sl = GetIt.instance;
 
 Future<void> init() async {
-  // -----------------------------
-  // Core
-  // -----------------------------
-
+  // TokenStorage
   sl.registerLazySingleton<TokenStorage>(() => TokenStorage());
 
-  // ApiClient регистрируем БЕЗ зависимости от AuthBloc
+  // ApiClient
   sl.registerLazySingleton<ApiClient>(() {
     final baseUrl = kIsWeb ? "http://localhost:8080" : "http://10.0.2.2:8080";
 
@@ -94,7 +93,13 @@ Future<void> init() async {
   // BLoC
   // -----------------------------
   sl.registerLazySingleton<AuthBloc>(
-    () => AuthBloc(authRepository: sl(), tokenStorage: sl()),
+    () => AuthBloc(
+      authRepository: sl(),
+      tokenStorage: sl(),
+      fcmService: (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
+          ? sl<FCMService>()
+          : null,
+    ),
   );
 
   sl.registerFactory<AdminBloc>(() => AdminBloc(repository: sl()));
@@ -107,8 +112,17 @@ Future<void> init() async {
 
   sl.registerFactory<UserBloc>(() => UserBloc(repository: sl()));
 
-  sl.registerFactory<NotificationBloc>(
-    () => NotificationBloc(repository: sl()),
+  // FCM Service
+  sl.registerLazySingleton<FCMService>(
+    () => FCMService(repository: sl<NotificationRepository>()),
   );
 
+  sl.registerLazySingleton<NotificationBloc>(
+    () => NotificationBloc(
+      repository: sl<NotificationRepository>(),
+      fcmService: (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
+          ? sl<FCMService>()
+          : null,
+    ),
+  );
 }
