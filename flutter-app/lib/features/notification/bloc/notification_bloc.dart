@@ -155,15 +155,6 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
         ),
       );
 
-      // 👉 можно триггерить UI (toast)
-      if (response.notifications.isNotEmpty) {
-        emit(
-          state.copyWith(
-            actionMessage: () => "new_notifications",
-            messageId: DateTime.now().millisecondsSinceEpoch.toString(),
-          ),
-        );
-      }
       add(FetchUnreadCount());
     } catch (_) {}
   }

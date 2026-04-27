@@ -22,9 +22,10 @@ class AppToast extends StatelessWidget {
       color: Colors.transparent,
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.only(top: 12, right: 12, left: 12, bottom: 4),
         decoration: BoxDecoration(
-          color: theme.colorScheme.primary,
+          //border: BoxBorder.all(color: theme.colorScheme.primary, width: 2),
+          color: theme.colorScheme.onPrimaryContainer.withAlpha(235),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -35,7 +36,7 @@ class AppToast extends StatelessWidget {
               onTap: onTap,
               child: Row(
                 children: [
-                  const Icon(Icons.notifications, color: Colors.white),
+                  Icon(Icons.notifications, color: theme.colorScheme.onPrimary),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -43,15 +44,18 @@ class AppToast extends StatelessWidget {
                       children: [
                         Text(
                           title,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: theme.colorScheme.onPrimary,
                             fontWeight: FontWeight.bold,
+                            fontSize: 16,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           body,
-                          style: const TextStyle(color: Colors.white70),
+                          style: TextStyle(
+                            color: theme.colorScheme.onSecondary,
+                          ),
                         ),
                       ],
                     ),
@@ -60,19 +64,19 @@ class AppToast extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(height: 8),
+            // const SizedBox(height: 2),
 
             /// ✅ Кнопка
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
                 onPressed: onMarkRead,
-                child: const Text(
+                child: Text(
                   'Прочитано',
-                  style: TextStyle(color: Colors.white),
+                  style: TextStyle(color: theme.colorScheme.primaryFixed),
                 ),
               ),
-            )
+            ),
           ],
         ),
       ),

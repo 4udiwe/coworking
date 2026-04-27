@@ -143,7 +143,7 @@ class NotificationTile extends StatelessWidget {
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          '${context.l10n.notificationReadAt} ${DateFormat('HH:mm').format(notification.readAt!)}',
+                          '${context.l10n.notificationReadAt} ${DateFormat('HH:mm').format(notification.readAt!.toLocal())}',
                           style: theme.textTheme.labelSmall?.copyWith(
                             color: colorScheme.primary,
                           ),

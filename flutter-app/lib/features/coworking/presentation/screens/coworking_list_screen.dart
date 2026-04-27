@@ -16,20 +16,7 @@ class CoworkingPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => sl<CoworkingBloc>()..add(FetchCoworkings()),
-      child: BlocListener<CoworkingBloc, CoworkingState>(
-        listenWhen: (prev, curr) => prev.messageId != curr.messageId,
-        listener: (context, state) {
-          if (state.actionMessage != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.actionMessage!),
-                backgroundColor: state.isError ? Colors.red : Colors.green,
-              ),
-            );
-          }
-        },
-        child: const CoworkingListScreen(),
-      ),
+      child: const CoworkingListScreen(),
     );
   }
 }
