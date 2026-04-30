@@ -96,7 +96,7 @@ func (r *DeviceRepository) DeleteByToken(ctx context.Context, token string) erro
 		Where("device_token = ?", token).
 		ToSql()
 
-	_, err := r.GetTxManager(ctx).Exec(ctx, query, args)
+	_, err := r.GetTxManager(ctx).Exec(ctx, query, args...)
 	if err != nil {
 		return err
 	}
