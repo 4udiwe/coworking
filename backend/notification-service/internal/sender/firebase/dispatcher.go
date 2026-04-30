@@ -73,10 +73,12 @@ func (d *DefaultDispatcher) Dispatch(ctx context.Context, notification entity.No
 		}).Debug("sending push to device")
 
 		err := d.pushSender.Send(ctx, sender.PushMessage{
-			Token: device.DeviceToken,
-			Title: notification.Title,
-			Body:  notification.Body,
-			Data:  payloadMap,
+			Token:          device.DeviceToken,
+			Title:          notification.Title,
+			Body:           notification.Body,
+			NotificationID: notification.ID.String(),
+			ActionURL:      *notification.ActionURL,
+			Data:           payloadMap,
 		})
 
 		if err != nil {

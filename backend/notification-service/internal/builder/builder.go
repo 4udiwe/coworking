@@ -115,7 +115,7 @@ func (b *DefaultBuilder) buildBookingCancelled(event Event) (entity.Notification
 
 	payloadBytes, _ := json.Marshal(payload)
 
-	actionURL := fmt.Sprintf("/bookings?tab=all&bookingId=%s", bookingID)
+	actionURL := fmt.Sprintf("/bookings?tab=history&bookingId=%s", bookingID)
 
 	return entity.Notification{
 		UserID: event.UserID,
@@ -188,7 +188,7 @@ func (b *DefaultBuilder) buildBookingExpired(event Event) (entity.Notification, 
 
 	payloadBytes, _ := json.Marshal(payload)
 
-	actionURL := fmt.Sprintf("/bookings?tab=all&bookingId=%s", bookingID)
+	actionURL := fmt.Sprintf("/bookings?tab=history&bookingId=%s", bookingID)
 
 	return entity.Notification{
 		UserID: event.UserID,

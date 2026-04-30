@@ -36,30 +36,43 @@ func (s *FirebaseSender) Send(
 ) error {
 	logrus.Debug("firebase: sending notification")
 
+	// Формирование data со всеми данными для сообщения без блока Notification (только Data)
+	 data := map[string]string{
+        "title":          msg.Title,
+        "body":           msg.Body,
+        "notificationId": msg.NotificationID,
+        "actionUrl":      msg.ActionURL,
+    }
+    
+    // Добавляем остальной payload
+    for k, v := range msg.Data {
+        data[k] = v
+    }
+
 	message := &messaging.Message{
 		Token: msg.Token,
 
-		Notification: &messaging.Notification{
-			Title: msg.Title,
-			Body:  msg.Body,
-		},
-
-		Data: msg.Data,
+		Data: data,
 
 		Android: &messaging.AndroidConfig{
 			Priority: "high",
 		},
 
 		APNS: &messaging.APNSConfig{
-			Headers: map[string]string{
-				"apns-priority": "10",
-			},
-		},
+            Headers: map[string]string{
+                "apns-priority": "10",
+                "apns-push-type": "alert",
+            },
+            Payload: &messaging.APNSPayload{
+                Aps: &messaging.Aps{
+                    ContentAvailable: true,
+                },
+            },
+        },
 	}
 
 	_, err := s.client.Send(ctx, message)
 	if err != nil {
-
 		if messaging.IsRegistrationTokenNotRegistered(err) {
 			logrus.Warn("firebase: device token not registered")
 			return sender.ErrInvalidToken
