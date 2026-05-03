@@ -121,8 +121,3 @@
 
 **Описание параметров:**
 - `retentionDays` — удалять revoked сессии, которым больше этого количества дней
-
-**Логика в auth-service:**
-- Получает событие с указанным retentionDays
-- Выполняет: `DELETE FROM refresh_tokens WHERE revoked = true AND created_at < now() - INTERVAL 'retentionDays days'`
-- Логирует количество удалённых записей

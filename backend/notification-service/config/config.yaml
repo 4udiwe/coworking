@@ -45,3 +45,6 @@ outbox:
 
 push_sender:
   service_account_path: "/config/firebase-service-account.json"
+
+auth:
+  public_key_path: "/app/keys/public.pem"
