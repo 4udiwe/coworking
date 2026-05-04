@@ -36,6 +36,11 @@
             </intent-filter>
         </service>
 
+        <receiver android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
+        <receiver android:exported="false"
+            android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver" />
+
         <!-- Иконка и цвет уведомлений-->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"

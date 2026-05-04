@@ -9,51 +9,40 @@ import 'package:flutter/material.dart';
 import '../../features/coworking/presentation/screens/coworking_list_screen.dart';
 
 class AppRouter {
-  static Route<dynamic> generateRoute(RouteSettings settings) {
-    switch (settings.name) {
+  // Глобальный ключ — даёт доступ к навигатору без контекста
+  static final navigatorKey = GlobalKey<NavigatorState>();
 
+  static Route<dynamic> generateRoute(RouteSettings settings) {
+    // Парсим маршрут с query параметрами
+    final uri = Uri.parse(settings.name ?? '/');
+
+    switch (uri.path) {
       case '/login':
         return MaterialPageRoute(builder: (_) => const LoginScreen());
       case '/register':
         return MaterialPageRoute(builder: (_) => const RegisterScreen());
-
       case '/main':
-        return MaterialPageRoute(
-          builder: (_) => const MainScreen(),
-        );
-
+        return MaterialPageRoute(builder: (_) => const MainScreen());
       case '/coworkings':
-        return MaterialPageRoute(
-          builder: (_) => const CoworkingPage(),
-        );
-
+        return MaterialPageRoute(builder: (_) => const CoworkingPage());
       case '/bookings':
-        final uri = Uri.parse(settings.name!);
-
         final tab = uri.queryParameters['tab'];
         final bookingId = uri.queryParameters['bookingId'];
-
         return MaterialPageRoute(
-          builder: (_) => BookingsPage(
-            initialTab: tab,
-            highlightBookingId: bookingId,
-          ),
+          builder: (_) =>
+              BookingsPage(initialTab: tab, highlightBookingId: bookingId),
         );
-
       case '/profile':
-        return MaterialPageRoute(
-          builder: (_) => const ProfileScreen(),
-        );
-
+        return MaterialPageRoute(builder: (_) => const ProfileScreen());
       case '/sessions':
-        return MaterialPageRoute(
-          builder: (_) => const SessionsPage(),
-        );
-
+        return MaterialPageRoute(builder: (_) => const SessionsPage());
       default:
-        return MaterialPageRoute(
-          builder: (_) => const MainScreen(),
-        );
+        return MaterialPageRoute(builder: (_) => const MainScreen());
     }
+  }
+
+  // Навигация без контекста — для FCM и других внешних источников
+  static void navigateTo(String url) {
+    navigatorKey.currentState?.pushNamed(url);
   }
 }

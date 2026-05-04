@@ -9,8 +9,6 @@ class ToastService {
       BuildContext context, {
         required Widget Function(VoidCallback remove, Animation<double> animation) builder,
       }) {
-    //Overlay.of(context);
-
     final item = _ToastItem();
 
     final controller = AnimationController(
@@ -27,25 +25,26 @@ class ToastService {
     item.controller = controller;
     item.animation = animation;
 
-    // void remove() {
-    //   controller.reverse().then((_) {
-    //     _items.remove(item);
-    //     _overlay?.markNeedsBuild();
-
-    //     if (_items.isEmpty) {
-    //       _overlay?.remove();
-    //       _overlay = null;
-    //     }
-    //   });
-    // }
-
     item.builder = (remove, animation) => builder(remove, animation);
 
     _items.insert(0, item);
 
     _showOverlay(context);
 
-    controller.forward();
+    controller.forward().then((_) {
+      Future.delayed(const Duration(seconds: 5), () {
+        if (_items.contains(item)) {
+          item.controller.reverse().then((_) {
+            _items.remove(item);
+            _overlay?.markNeedsBuild();
+            if (_items.isEmpty) {
+              _overlay?.remove();
+              _overlay = null;
+            }
+          });
+        }
+      });
+    });
   }
 
   static void _showOverlay(BuildContext context) {

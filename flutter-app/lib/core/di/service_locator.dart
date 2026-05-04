@@ -118,11 +118,6 @@ Future<void> init() async {
   );
 
   sl.registerLazySingleton<NotificationBloc>(
-    () => NotificationBloc(
-      repository: sl<NotificationRepository>(),
-      fcmService: (!kIsWeb && (Platform.isAndroid || Platform.isIOS))
-          ? sl<FCMService>()
-          : null,
-    ),
+    () => NotificationBloc(repository: sl<NotificationRepository>()),
   );
 }

@@ -112,7 +112,11 @@ class _MainScreenState extends State<MainScreen> {
         }
 
         return BlocListener<NotificationBloc, NotificationState>(
-          listenWhen: (prev, curr) => prev.messageId != curr.messageId,
+          listenWhen: (prev, curr) {
+            final prevFirst = prev.notifications.data?.firstOrNull?.id;
+            final currFirst = curr.notifications.data?.firstOrNull?.id;
+            return prevFirst != currFirst;
+          },
           listener: (context, state) {
             final notifications = state.notifications.data ?? [];
             print("notifications = ${notifications.length}");
@@ -126,6 +130,9 @@ class _MainScreenState extends State<MainScreen> {
 
             if (_shownNotifications.contains(latest.id)) return;
             _shownNotifications.add(latest.id);
+            if (_shownNotifications.length > 50) {
+              _shownNotifications.remove(_shownNotifications.first);
+            }
 
             if (!_shouldShowToast(latest.type)) return;
 
@@ -142,7 +149,7 @@ class _MainScreenState extends State<MainScreen> {
                     remove();
                   },
 
-                  /// 🔥 NAVIGATION
+                  /// NAVIGATION
                   onTap: () {
                     if (latest.actionUrl != null) {
                       Navigator.of(context).pushNamed(latest.actionUrl!);

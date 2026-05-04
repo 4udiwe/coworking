@@ -70,6 +70,8 @@ class _BookingsScreenState extends State<BookingsScreen>
 
     _tabController = TabController(length: 2, vsync: this);
 
+    print("Initial tap = " + widget.initialTab.toString());
+
     // 👉 tab
     if (widget.initialTab == 'history') {
       _tabController.index = 1;
@@ -132,10 +134,11 @@ class _BookingList extends StatefulWidget {
   State<_BookingList> createState() => _BookingListState();
 }
 
+// В _BookingList добавляем Map ключей для каждого элемента
 class _BookingListState extends State<_BookingList> {
-  bool _scrolled = false;
-
   final ScrollController _controller = ScrollController();
+  final Map<String, GlobalKey> _itemKeys = {};
+  bool _scrolled = false;
 
   @override
   void initState() {
@@ -145,11 +148,9 @@ class _BookingListState extends State<_BookingList> {
 
   void _onScroll() {
     if (!mounted) return;
-
     if (_controller.position.pixels >=
         _controller.position.maxScrollExtent - 200) {
       final bloc = context.read<BookingBloc>();
-
       if (widget.isActive) {
         bloc.add(LoadMoreActive());
       } else {
@@ -159,37 +160,60 @@ class _BookingListState extends State<_BookingList> {
   }
 
   @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _scrollToHighlighted() {
+    if (widget.highlightBookingId == null || _scrolled) return;
+    final key = _itemKeys[widget.highlightBookingId];
+    if (key?.currentContext != null) {
+      _scrolled = true;
+      Scrollable.ensureVisible(
+        key!.currentContext!,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+        alignment: 0.3, // элемент окажется в верхней трети экрана
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return BlocBuilder<BookingBloc, BookingState>(
       builder: (context, state) {
         final items = widget.isActive ? state.activeItems : state.historyItems;
-
-        if (!_scrolled &&
-            widget.highlightBookingId != null &&
-            items.isNotEmpty) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            final index = items.indexWhere(
-              (b) => b.id == widget.highlightBookingId,
-            );
-
-            if (index != -1) {
-              _controller.animateTo(
-                index * 100, // примерная высота
-                duration: const Duration(milliseconds: 400),
-                curve: Curves.easeInOut,
-              );
-              _scrolled = true;
-            }
-          });
-        }
-
         final loading = widget.isActive
             ? state.activeLoading
             : state.historyLoading;
-
         final loadingMore = widget.isActive
             ? state.activeLoadingMore
             : state.historyLoadingMore;
+
+        // Скроллим после рендера
+        if (widget.highlightBookingId != null &&
+            items.isNotEmpty &&
+            !_scrolled) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _scrollToHighlighted();
+          });
+        }
+
+        if (loading && items.isEmpty) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (items.isEmpty) {
+          return Center(
+            child: Text(
+              widget.isActive
+                  ? context.l10n.noActiveBookings
+                  : context.l10n.noHistoryBookings,
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+            ),
+          );
+        }
 
         return RefreshIndicator(
           onRefresh: () async {
@@ -203,35 +227,44 @@ class _BookingListState extends State<_BookingList> {
               );
             }
           },
-          child: loading && items.isEmpty
-              ? const Center(child: CircularProgressIndicator())
-              : items.isEmpty
-              ? Center(
-                  child: Text(
-                    widget.isActive
-                        ? context.l10n.noActiveBookings
-                        : context.l10n.noHistoryBookings,
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
-                  ),
-                )
-              : ListView.builder(
-                  controller: _controller,
-                  itemCount: items.length + (loadingMore ? 1 : 0),
-                  itemBuilder: (_, i) {
-                    if (i >= items.length) {
-                      return const Padding(
-                        padding: EdgeInsets.all(16),
-                        child: Center(child: CircularProgressIndicator()),
-                      );
-                    }
+          // Listener сбрасывает подсветку при любом касании списка
+          child: Listener(
+            onPointerDown: (_) {
+              // Сигнал тайлу через BLoC или просто перестраиваем —
+              // здесь проще всего снять highlight через setState родителя,
+              // но т.к. тайл сам управляет своей анимацией через _dismissHighlight,
+              // достаточно что onTap на тайле её сбрасывает.
+              // Если нужно сбросить даже без тапа на сам тайл — используй подход ниже.
+            },
+            child: ListView.builder(
+              controller: _controller,
+              itemCount: items.length + (loadingMore ? 1 : 0),
+              itemBuilder: (_, i) {
+                if (i >= items.length) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
 
-                    return BookingTile(
-                      booking: items[i],
-                      isActive: widget.isActive,
-                      isHighlighted: items[i].id == widget.highlightBookingId,
-                    );
-                  },
-                ),
+                final booking = items[i];
+                final isHighlighted = booking.id == widget.highlightBookingId;
+
+                // Создаём ключ для элемента при необходимости
+                final key = _itemKeys.putIfAbsent(
+                  booking.id,
+                  () => GlobalKey(),
+                );
+
+                return BookingTile(
+                  key: key,
+                  booking: booking,
+                  isActive: widget.isActive,
+                  isHighlighted: isHighlighted,
+                );
+              },
+            ),
+          ),
         );
       },
     );

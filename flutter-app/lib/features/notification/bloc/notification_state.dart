@@ -9,18 +9,17 @@ class NotificationState {
   final DateTime? lastFetchedAt;
 
   final String? actionMessage;
-  final String? messageId;
   final bool isError;
 
-  DateTime? get latestCreatedAt =>
-      notifications.data!.isNotEmpty ? notifications.data!.first.createdAt : null;
+  DateTime? get latestCreatedAt => notifications.data!.isNotEmpty
+      ? notifications.data!.first.createdAt
+      : null;
 
   const NotificationState({
     this.notifications = const LoadState(),
     this.unreadCount = 0,
     this.lastFetchedAt,
     this.actionMessage,
-    this.messageId,
     this.isError = false,
   });
 
@@ -35,11 +34,12 @@ class NotificationState {
     return NotificationState(
       notifications: notifications ?? this.notifications,
       unreadCount: unreadCount ?? this.unreadCount,
-      lastFetchedAt:
-      lastFetchedAt != null ? lastFetchedAt() : this.lastFetchedAt,
-      actionMessage:
-      actionMessage != null ? actionMessage() : this.actionMessage,
-      messageId: messageId ?? this.messageId,
+      lastFetchedAt: lastFetchedAt != null
+          ? lastFetchedAt()
+          : this.lastFetchedAt,
+      actionMessage: actionMessage != null
+          ? actionMessage()
+          : this.actionMessage,
       isError: isError ?? this.isError,
     );
   }

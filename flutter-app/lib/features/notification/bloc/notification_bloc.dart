@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:coworking_app/core/services/fcm_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/utils/bloc_load_state.dart';
@@ -10,12 +9,10 @@ import 'notification_state.dart';
 
 class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
   final NotificationRepository repository;
-  final FCMService? fcmService; // nullable — не используется на десктопе/вебе
 
   Timer? _pollTimer;
-  StreamSubscription? _fcmSubscription;
 
-  NotificationBloc({required this.repository, this.fcmService})
+  NotificationBloc({required this.repository})
     : super(const NotificationState()) {
     on<FetchNotifications>(_onFetchNotifications);
     on<PollNotifications>(_onPollNotifications);
@@ -24,27 +21,10 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
     on<MarkAllNotificationsRead>(_onMarkAllRead);
     on<ClearAction>(_onClearAction);
     on<FCMMessageReceived>(_onFCMMessageReceived);
-
-    _initFCMListener();
-  }
-
-  void _initFCMListener() {
-    if (fcmService == null) return;
-
-    // Foreground: приложение открыто
-    _fcmSubscription = fcmService!.onForegroundMessage.listen((message) {
-      add(FCMMessageReceived());
-    });
-
-    // Background tap: юзер тапнул на уведомление
-    fcmService!.onMessageOpenedApp.listen((message) {
-      add(FCMMessageReceived());
-    });
   }
 
   void startPolling() {
     _pollTimer?.cancel();
-
     _pollTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       add(PollNotifications());
     });
@@ -57,7 +37,6 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
   @override
   Future<void> close() {
     _pollTimer?.cancel();
-    _fcmSubscription?.cancel();
     return super.close();
   }
 
@@ -65,7 +44,6 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
     FCMMessageReceived event,
     Emitter<NotificationState> emit,
   ) async {
-    // Просто рефрешим список и счётчик — бекенд уже сохранил уведомление
     add(FetchNotifications(refresh: true));
     add(FetchUnreadCount());
 
@@ -119,9 +97,6 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
     }
   }
 
-  /// =======================
-  /// POLLING
-  /// =======================
   Future<void> _onPollNotifications(
     PollNotifications event,
     Emitter<NotificationState> emit,
@@ -133,10 +108,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
       );
 
       final current = state.notifications.data ?? [];
-
-      // merge (dedupe)
       final map = {for (var n in current) n.id: n};
-
       for (final n in response.notifications) {
         map[n.id] = n;
       }
@@ -144,12 +116,17 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
       final merged = map.values.toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
+      const maxItems = 50;
+      final trimmed = merged.length > maxItems
+          ? merged.sublist(0, maxItems)
+          : merged;
+
       emit(
         state.copyWith(
-          notifications: LoadState(data: merged, status: LoadStatus.success),
+          notifications: LoadState(data: trimmed, status: LoadStatus.success),
           lastFetchedAt: () => response.notifications.isNotEmpty
               ? response.notifications.first.createdAt.add(
-                  Duration(milliseconds: 1),
+                  const Duration(milliseconds: 1),
                 )
               : state.lastFetchedAt,
         ),
@@ -159,23 +136,16 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
     } catch (_) {}
   }
 
-  /// =======================
-  /// UNREAD COUNT
-  /// =======================
   Future<void> _onFetchUnreadCount(
     FetchUnreadCount event,
     Emitter<NotificationState> emit,
   ) async {
     try {
       final count = await repository.getUnreadCount();
-
       emit(state.copyWith(unreadCount: count));
     } catch (_) {}
   }
 
-  /// =======================
-  /// MARK READ
-  /// =======================
   Future<void> _onMarkRead(
     MarkNotificationRead event,
     Emitter<NotificationState> emit,
@@ -184,9 +154,7 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
       await repository.markRead(event.id);
 
       final updated = state.notifications.data?.map((n) {
-        if (n.id == event.id) {
-          return n.copyWith(isRead: true);
-        }
+        if (n.id == event.id) return n.copyWith(isRead: true);
         return n;
       }).toList();
 
@@ -200,9 +168,6 @@ class NotificationBloc extends Bloc<NotificationEvent, NotificationState> {
     } catch (_) {}
   }
 
-  /// =======================
-  /// MARK ALL READ
-  /// =======================
   Future<void> _onMarkAllRead(
     MarkAllNotificationsRead event,
     Emitter<NotificationState> emit,

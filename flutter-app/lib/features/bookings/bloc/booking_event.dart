@@ -24,3 +24,5 @@ class HighlightBooking extends BookingEvent {
   final String bookingId;
   HighlightBooking(this.bookingId);
 }
+
+class DisableBookingHighlight extends BookingEvent {}
