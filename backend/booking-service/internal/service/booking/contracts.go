@@ -13,7 +13,8 @@ import (
 type BookingRepository interface {
 	Create(ctx context.Context, booking entity.Booking) (uuid.UUID, error)
 	GetByID(ctx context.Context, id uuid.UUID) (entity.Booking, error)
-	ListByUser(ctx context.Context, userID uuid.UUID, page int, pageSize int, status *string) ([]entity.Booking, int, error)
+	ListActiveByUser(ctx context.Context, userID uuid.UUID, page, pageSize int) ([]entity.Booking, int, error)
+	ListHistoryByUser(ctx context.Context, userID uuid.UUID, page, pageSize int) ([]entity.Booking, int, error)
 	Cancel(ctx context.Context, id uuid.UUID, reason *string) error
 	MarkCompleted(ctx context.Context, id uuid.UUID) error
 	GetAdminActiveBookings(ctx context.Context, coworkingID uuid.UUID, page int, pageSize int, dateFrom *time.Time, dateTo *time.Time, placeType *string, sortBy *string) ([]entity.Booking, int, error)

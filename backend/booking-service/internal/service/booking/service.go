@@ -568,12 +568,24 @@ func (s *BookingService) GetBookingByID(ctx context.Context, bookingID uuid.UUID
 	return booking, nil
 }
 
-func (s *BookingService) ListBookingsByUser(ctx context.Context, userID uuid.UUID, page int, pageSize int, status *string) ([]entity.Booking, int, error) {
-	logrus.Infof("Listing bookings for user ID: %s", userID)
+func (s *BookingService) ListActiveBookingsByUser(ctx context.Context, userID uuid.UUID, page int, pageSize int) ([]entity.Booking, int, error) {
+	logrus.Infof("Listing active bookings for user ID: %s", userID)
 
-	bookings, totalCount, err := s.bookingRepo.ListByUser(ctx, userID, page, pageSize, status)
+	bookings, totalCount, err := s.bookingRepo.ListActiveByUser(ctx, userID, page, pageSize)
 	if err != nil {
-		logrus.Errorf("Failed to list bookings by user: %v", err)
+		logrus.Errorf("Failed to list active bookings by user: %v", err)
+		return nil, 0, ErrCannotFetchBooking
+	}
+
+	return bookings, totalCount, nil
+}
+
+func (s *BookingService) ListHistoryBookingsByUser(ctx context.Context, userID uuid.UUID, page int, pageSize int) ([]entity.Booking, int, error) {
+	logrus.Infof("Listing history bookings for user ID: %s", userID)
+
+	bookings, totalCount, err := s.bookingRepo.ListHistoryByUser(ctx, userID, page, pageSize)
+	if err != nil {
+		logrus.Errorf("Failed to list history bookings by user: %v", err)
 		return nil, 0, ErrCannotFetchBooking
 	}
 

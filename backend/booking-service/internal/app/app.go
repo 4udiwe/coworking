@@ -49,7 +49,8 @@ type App struct {
 	deleteLayoutHander   api.Handler
 
 	getBookingByIdHandler                api.Handler
-	getBookingsByUserHandler             api.Handler
+	getActiveBookingsByUserHandler       api.Handler
+	getHistoryBookingsByUserHandler      api.Handler
 	getCoworkingByIdHandler              api.Handler
 	getCoworkingsHandler                 api.Handler
 	getLayoutHandler                     api.Handler
@@ -61,14 +62,14 @@ type App struct {
 
 	patchCoworkingActiveHandler api.Handler
 	patchLayoutSetActiveHandler api.Handler
-	patchPlaceActiveHander api.Handler
+	patchPlaceActiveHander      api.Handler
 
-	postBookingHandler        api.Handler
-	postCoworkingHandler      api.Handler
-	postLayoutHandler         api.Handler
-	postPlacesHandler         api.Handler
+	postBookingHandler   api.Handler
+	postCoworkingHandler api.Handler
+	postLayoutHandler    api.Handler
+	postPlacesHandler    api.Handler
 
-	putCoworkingHandler         api.Handler
+	putCoworkingHandler api.Handler
 
 	// Consumer
 	schedulerConsumer *consumer_scheduler.Consumer

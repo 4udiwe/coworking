@@ -3,12 +3,12 @@ package booking_repository
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/4udiwe/avito-pvz/pkg/postgres"
 	"github.com/4udiwe/cowoking/booking-service/internal/entity"
 	. "github.com/4udiwe/cowoking/booking-service/internal/repository"
+	"github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/samber/lo"
@@ -131,99 +131,218 @@ func (r *BookingRepository) GetByID(
 	return raw.toEntity(), nil
 }
 
-func (r *BookingRepository) ListByUser(
-	ctx context.Context,
-	userID uuid.UUID,
-	page int,
-	pageSize int,
-	status *string,
-) ([]entity.Booking, int, error) {
-
-	// Get total count
-	countQuery := r.Builder.
-		Select("COUNT(*)").
-		From("booking b").
-		Join("place p ON b.place_id = p.id").
-		Join("booking_status bs ON b.status_id = bs.id").
-		Where("b.user_id = ?", userID)
-
-	if status != nil {
-		countQuery = countQuery.Where("bs.name = ?", *status)
-	}
-
-	countSql, countArgs, _ := countQuery.ToSql()
-
-	var totalCount int
-	err := r.GetTxManager(ctx).QueryRow(ctx, countSql, countArgs...).Scan(&totalCount)
-	if err != nil {
-		logrus.WithError(err).WithField("user_id", userID.String()).Error("failed to count user bookings")
-		return nil, 0, err
-	}
-
-	// Get paginated bookings
-	offset := (page - 1) * pageSize
-	query := r.Builder.
+// Метод для построение базового SQL запроса для получения бронирований пользователя
+// вместе с PlaceID, CoworkingID, и BookingStatus
+// Внутри можно обращаться к bookig b, place p, coworking c.
+func (r *BookingRepository) baseBookingQuery() squirrel.SelectBuilder {
+	return r.Builder.
 		Select(
-			"b.id",
-			"b.user_id",
-			"b.user_name",
-			"b.place_id",
-			"p.label as place_label",
-			"p.place_type as place_type",
-			"p.coworking_id as place_coworking_id",
-			"p.is_active as place_is_active",
-			"c.name as coworking_name",
-			"c.address as coworking_address",
+			"b.id", "b.user_id", "b.user_name", "b.place_id",
+			"p.label as place_label", "p.place_type as place_type",
+			"p.coworking_id as place_coworking_id", "p.is_active as place_is_active",
+			"c.name as coworking_name", "c.address as coworking_address",
 			"c.is_active as coworking_is_active",
-			"c.created_at as coworking_created_at",
-			"c.updated_at as coworking_updated_at",
-			"b.start_time",
-			"b.end_time",
-			"b.status_id",
-			"bs.name as status_name",
-			"b.cancel_reason",
-			"b.created_at",
-			"b.updated_at",
-			"b.cancelled_at",
+			"c.created_at as coworking_created_at", "c.updated_at as coworking_updated_at",
+			"b.start_time", "b.end_time", "b.status_id", "bs.name as status_name",
+			"b.cancel_reason", "b.created_at", "b.updated_at", "b.cancelled_at",
 		).
 		From("booking b").
 		Join("place p ON b.place_id = p.id").
 		Join("coworking c ON p.coworking_id = c.id").
 		Join("booking_status bs ON b.status_id = bs.id").
-		Where("b.user_id = ?", userID)
+		OrderBy("b.created_at DESC").
+		OrderBy("b.start_time DESC")
+}
 
-	if status != nil {
-		query = query.Where("bs.name = ?", *status)
+// Базовый метод для получения списка бронирований пользователя по уже готовому запросу
+//
+// Возвращает:
+// []entity.Booking найденные бронирования,
+// int totalCount кол-во записей для пагинации,
+// ошибку.
+func (r *BookingRepository) listBookings(
+	ctx context.Context,
+	query squirrel.SelectBuilder,
+	countQuery squirrel.SelectBuilder,
+	page, pageSize int,
+) ([]entity.Booking, int, error) {
+	// count
+	countSql, countArgs, _ := countQuery.ToSql()
+	var totalCount int
+	err := r.GetTxManager(ctx).QueryRow(ctx, countSql, countArgs...).Scan(&totalCount)
+	if err != nil {
+		logrus.WithError(err).Error("failed to count user bookings")
+		return nil, 0, err
 	}
 
-	query = query.
-		OrderBy(fmt.Sprintf("CASE WHEN b.status_id = %d THEN 0 ELSE 1 END", StatusActive)).
-		OrderBy("b.start_time DESC").
+	// paginate
+	offset := (page - 1) * pageSize
+	sql, args, _ := query.
 		Limit(uint64(pageSize)).
-		Offset(uint64(offset))
-
-	sql, args, _ := query.ToSql()
+		Offset(uint64(offset)).
+		ToSql()
 
 	rows, err := r.GetTxManager(ctx).Query(ctx, sql, args...)
 	if err != nil {
-		logrus.WithError(err).WithField("user_id", userID.String()).Error("failed to list user bookings")
+		logrus.WithError(err).Error("failed to list user bookings")
 		return nil, 0, err
 	}
 	defer rows.Close()
 
 	raws, err := pgx.CollectRows(rows, pgx.RowToStructByName[rawBookingPlaceStatus])
-
 	if err != nil {
 		logrus.WithError(err).Error("failed to collect booking rows")
 		return nil, 0, err
 	}
 
-	bookings := lo.Map(raws, func(raw rawBookingPlaceStatus, _ int) entity.Booking {
+	return lo.Map(raws, func(raw rawBookingPlaceStatus, _ int) entity.Booking {
 		return raw.toEntity()
-	})
-
-	return bookings, totalCount, nil
+	}), totalCount, nil
 }
+
+// Метод для получения всех бронирований пользователя из раздела Active.
+// Использует базовый билдер запросов baseBookingQuery.
+func (r *BookingRepository) ListActiveByUser(
+	ctx context.Context,
+	userID uuid.UUID,
+	page, pageSize int,
+) ([]entity.Booking, int, error) {
+	activeStatuses := entity.GetActiveStatuses()
+
+	base := r.baseBookingQuery().
+		Where("b.user_id = ?", userID).
+		Where(squirrel.Eq{"bs.name": activeStatuses})
+
+	countBase := r.Builder.
+		Select("COUNT(*)").
+		From("booking b").
+		Join("booking_status bs ON b.status_id = bs.id").
+		Where("b.user_id = ?", userID).
+		Where(squirrel.Eq{"bs.name": activeStatuses})
+
+	query := base.OrderBy("b.start_time DESC")
+
+	return r.listBookings(ctx, query, countBase, page, pageSize)
+}
+
+// Метод для получения всех бронирований пользователя из раздела History.
+// Использует базовый билдер запросов baseBookingQuery.
+func (r *BookingRepository) ListHistoryByUser(
+	ctx context.Context,
+	userID uuid.UUID,
+	page, pageSize int,
+) ([]entity.Booking, int, error) {
+	historyStatuses := entity.GetHistoryStatuses()
+
+	base := r.baseBookingQuery().
+		Where("b.user_id = ?", userID).
+		Where(squirrel.Eq{"bs.name": historyStatuses})
+
+	countBase := r.Builder.
+		Select("COUNT(*)").
+		From("booking b").
+		Join("booking_status bs ON b.status_id = bs.id").
+		Where("b.user_id = ?", userID).
+		Where(squirrel.Eq{"bs.name": historyStatuses})
+
+	query := base.OrderBy("b.start_time DESC")
+
+	return r.listBookings(ctx, query, countBase, page, pageSize)
+}
+
+// func (r *BookingRepository) ListByUser(
+// 	ctx context.Context,
+// 	userID uuid.UUID,
+// 	page int,
+// 	pageSize int,
+// 	status *string,
+// ) ([]entity.Booking, int, error) {
+
+// 	// Get total count
+// 	countQuery := r.Builder.
+// 		Select("COUNT(*)").
+// 		From("booking b").
+// 		Join("place p ON b.place_id = p.id").
+// 		Join("booking_status bs ON b.status_id = bs.id").
+// 		Where("b.user_id = ?", userID)
+
+// 	if status != nil {
+// 		countQuery = countQuery.Where("bs.name = ?", *status)
+// 	}
+
+// 	countSql, countArgs, _ := countQuery.ToSql()
+
+// 	var totalCount int
+// 	err := r.GetTxManager(ctx).QueryRow(ctx, countSql, countArgs...).Scan(&totalCount)
+// 	if err != nil {
+// 		logrus.WithError(err).WithField("user_id", userID.String()).Error("failed to count user bookings")
+// 		return nil, 0, err
+// 	}
+
+// 	// Get paginated bookings
+// 	offset := (page - 1) * pageSize
+// 	query := r.Builder.
+// 		Select(
+// 			"b.id",
+// 			"b.user_id",
+// 			"b.user_name",
+// 			"b.place_id",
+// 			"p.label as place_label",
+// 			"p.place_type as place_type",
+// 			"p.coworking_id as place_coworking_id",
+// 			"p.is_active as place_is_active",
+// 			"c.name as coworking_name",
+// 			"c.address as coworking_address",
+// 			"c.is_active as coworking_is_active",
+// 			"c.created_at as coworking_created_at",
+// 			"c.updated_at as coworking_updated_at",
+// 			"b.start_time",
+// 			"b.end_time",
+// 			"b.status_id",
+// 			"bs.name as status_name",
+// 			"b.cancel_reason",
+// 			"b.created_at",
+// 			"b.updated_at",
+// 			"b.cancelled_at",
+// 		).
+// 		From("booking b").
+// 		Join("place p ON b.place_id = p.id").
+// 		Join("coworking c ON p.coworking_id = c.id").
+// 		Join("booking_status bs ON b.status_id = bs.id").
+// 		Where("b.user_id = ?", userID)
+
+// 	if status != nil {
+// 		query = query.Where("bs.name = ?", *status)
+// 	}
+
+// 	query = query.
+// 		OrderBy(fmt.Sprintf("CASE WHEN b.status_id = %d THEN 0 ELSE 1 END", StatusActive)).
+// 		OrderBy("b.start_time DESC").
+// 		Limit(uint64(pageSize)).
+// 		Offset(uint64(offset))
+
+// 	sql, args, _ := query.ToSql()
+
+// 	rows, err := r.GetTxManager(ctx).Query(ctx, sql, args...)
+// 	if err != nil {
+// 		logrus.WithError(err).WithField("user_id", userID.String()).Error("failed to list user bookings")
+// 		return nil, 0, err
+// 	}
+// 	defer rows.Close()
+
+// 	raws, err := pgx.CollectRows(rows, pgx.RowToStructByName[rawBookingPlaceStatus])
+
+// 	if err != nil {
+// 		logrus.WithError(err).Error("failed to collect booking rows")
+// 		return nil, 0, err
+// 	}
+
+// 	bookings := lo.Map(raws, func(raw rawBookingPlaceStatus, _ int) entity.Booking {
+// 		return raw.toEntity()
+// 	})
+
+// 	return bookings, totalCount, nil
+// }
 
 func (r *BookingRepository) Cancel(
 	ctx context.Context,

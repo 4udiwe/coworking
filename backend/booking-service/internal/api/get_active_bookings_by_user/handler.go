@@ -1,4 +1,4 @@
-package get_bookings_by_user
+package get_active_bookings_by_user
 
 import (
 	"net/http"
@@ -33,7 +33,7 @@ func (h *handler) Handle(ctx echo.Context, in Request) error {
 		return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 	}
 
-	bookings, totalCount, err := h.s.ListBookingsByUser(ctx.Request().Context(), claims.UserID, in.Page, in.PageSize, in.Status)
+	bookings, totalCount, err := h.s.ListActiveBookingsByUser(ctx.Request().Context(), claims.UserID, in.Page, in.PageSize)
 
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())

@@ -103,20 +103,36 @@ func (mr *MockBookingRepositoryMockRecorder) GetByID(ctx, id any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByID", reflect.TypeOf((*MockBookingRepository)(nil).GetByID), ctx, id)
 }
 
-// ListByUser mocks base method.
-func (m *MockBookingRepository) ListByUser(ctx context.Context, userID uuid.UUID, page, pageSize int, status *string) ([]entity.Booking, int, error) {
+// ListActiveByUser mocks base method.
+func (m *MockBookingRepository) ListActiveByUser(ctx context.Context, userID uuid.UUID, page, pageSize int) ([]entity.Booking, int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListByUser", ctx, userID, page, pageSize, status)
+	ret := m.ctrl.Call(m, "ListActiveByUser", ctx, userID, page, pageSize)
 	ret0, _ := ret[0].([]entity.Booking)
 	ret1, _ := ret[1].(int)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
 
-// ListByUser indicates an expected call of ListByUser.
-func (mr *MockBookingRepositoryMockRecorder) ListByUser(ctx, userID, page, pageSize, status any) *gomock.Call {
+// ListActiveByUser indicates an expected call of ListActiveByUser.
+func (mr *MockBookingRepositoryMockRecorder) ListActiveByUser(ctx, userID, page, pageSize any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListByUser", reflect.TypeOf((*MockBookingRepository)(nil).ListByUser), ctx, userID, page, pageSize, status)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListActiveByUser", reflect.TypeOf((*MockBookingRepository)(nil).ListActiveByUser), ctx, userID, page, pageSize)
+}
+
+// ListHistoryByUser mocks base method.
+func (m *MockBookingRepository) ListHistoryByUser(ctx context.Context, userID uuid.UUID, page, pageSize int) ([]entity.Booking, int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListHistoryByUser", ctx, userID, page, pageSize)
+	ret0, _ := ret[0].([]entity.Booking)
+	ret1, _ := ret[1].(int)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ListHistoryByUser indicates an expected call of ListHistoryByUser.
+func (mr *MockBookingRepositoryMockRecorder) ListHistoryByUser(ctx, userID, page, pageSize any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListHistoryByUser", reflect.TypeOf((*MockBookingRepository)(nil).ListHistoryByUser), ctx, userID, page, pageSize)
 }
 
 // MarkCompleted mocks base method.

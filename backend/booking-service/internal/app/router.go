@@ -63,7 +63,8 @@ func (app *App) configureRouter(handler *echo.Echo) {
 	{
 		bookingGroup.POST("", app.PostBookingHandler().Handle)
 		bookingGroup.GET("/:bookingId", app.GetBookingByIdHandler().Handle)
-		bookingGroup.GET("", app.GetBookingsByUserHandler().Handle)
+		bookingGroup.GET("/active", app.GetActiveBookingsByUserHandler().Handle)
+		bookingGroup.GET("/history", app.GetHistoryBookingsByUserHandler().Handle)
 		bookingGroup.DELETE("/:bookingId", app.DeleteBookingHandler().Handle)
 	}
 

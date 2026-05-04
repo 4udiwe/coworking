@@ -135,7 +135,6 @@ type GetAdminActiveBookingsRequest struct {
 type GetBookingsByUserRequest struct {
 	Page     int     `query:"page" validate:"required,min=1"`
 	PageSize int     `query:"pageSize" validate:"required,min=1,max=100"`
-	Status   *string `query:"status" validate:"omitempty,oneof=active completed cancelled"`
 }
 
 type CancelBookingRequest struct {

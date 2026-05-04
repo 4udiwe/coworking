@@ -268,6 +268,37 @@ paths:
               schema:
                 $ref: "#/components/schemas/Booking"
 
+  /bookings/active:
+    get:
+      tags: [Bookings]
+      summary: Активные бронирования пользователя
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+          description: Номер страницы
+        - in: query
+          name: pageSize
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+          description: Размер страницы
+      responses:
+        "200":
+          description: Список бронирований с пагинацией
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookingsPagedResponse"
+  
+  /bookings/history:
     get:
       tags: [Bookings]
       summary: История бронирований пользователя
@@ -289,13 +320,6 @@ paths:
             minimum: 1
             maximum: 100
           description: Размер страницы
-        - in: query
-          name: status
-          required: false
-          schema:
-            type: string
-            enum: [active, completed, cancelled]
-          description: Фильтр по статусу бронирования
       responses:
         "200":
           description: Список бронирований с пагинацией

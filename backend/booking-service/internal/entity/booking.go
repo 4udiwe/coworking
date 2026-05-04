@@ -27,3 +27,15 @@ type Booking struct {
 	UpdatedAt    time.Time
 	CancelledAt  *time.Time
 }
+
+// Возвращает все статусы с которыми бронирования отображаются в приложении
+// на вкладке "Active" в разделе бронирований пользователя
+func GetActiveStatuses() []string {
+	return []string{string(BookingStatusActive)}
+}
+
+// Возвращает все статусы с которыми бронирования отображаются в приложении
+// на вкладке "History" в разделе бронирований пользователя
+func GetHistoryStatuses() []string {
+	return []string{string(BookingStatusCancelled), string(BookingStatusCompleted)}
+}

@@ -4,12 +4,13 @@ import (
 	"github.com/4udiwe/cowoking/booking-service/internal/api"
 	"github.com/4udiwe/cowoking/booking-service/internal/api/delete_booking"
 	"github.com/4udiwe/cowoking/booking-service/internal/api/delete_layout"
+	"github.com/4udiwe/cowoking/booking-service/internal/api/get_active_bookings_by_user"
 	"github.com/4udiwe/cowoking/booking-service/internal/api/get_admin_bookings"
 	"github.com/4udiwe/cowoking/booking-service/internal/api/get_available_places_by_coworking"
 	"github.com/4udiwe/cowoking/booking-service/internal/api/get_booking_by_id"
-	"github.com/4udiwe/cowoking/booking-service/internal/api/get_bookings_by_user"
 	"github.com/4udiwe/cowoking/booking-service/internal/api/get_coworking_by_id"
 	"github.com/4udiwe/cowoking/booking-service/internal/api/get_coworkings"
+	"github.com/4udiwe/cowoking/booking-service/internal/api/get_history_bookings_by_user"
 	"github.com/4udiwe/cowoking/booking-service/internal/api/get_layout"
 	"github.com/4udiwe/cowoking/booking-service/internal/api/get_layout_by_version"
 	"github.com/4udiwe/cowoking/booking-service/internal/api/get_layout_versions"
@@ -48,12 +49,20 @@ func (app *App) GetBookingByIdHandler() api.Handler {
 	return app.getBookingByIdHandler
 }
 
-func (app *App) GetBookingsByUserHandler() api.Handler {
-	if app.getBookingsByUserHandler != nil {
-		return app.getBookingsByUserHandler
+func (app *App) GetActiveBookingsByUserHandler() api.Handler {
+	if app.getActiveBookingsByUserHandler != nil {
+		return app.getActiveBookingsByUserHandler
 	}
-	app.getBookingsByUserHandler = get_bookings_by_user.New(app.BookingService())
-	return app.getBookingsByUserHandler
+	app.getActiveBookingsByUserHandler = get_active_bookings_by_user.New(app.BookingService())
+	return app.getActiveBookingsByUserHandler
+}
+
+func (app *App) GetHistoryBookingsByUserHandler() api.Handler {
+	if app.getHistoryBookingsByUserHandler != nil {
+		return app.getHistoryBookingsByUserHandler
+	}
+	app.getHistoryBookingsByUserHandler = get_history_bookings_by_user.New(app.BookingService())
+	return app.getHistoryBookingsByUserHandler
 }
 
 func (app *App) GetCoworkingByIdHandler() api.Handler {
