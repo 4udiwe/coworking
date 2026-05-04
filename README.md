@@ -93,7 +93,6 @@ Notification service реализует гарантию **at-least-once**: ув
 | Observability | Grafana Loki + Promtail — централизованный сбор логов всех сервисов; готовый дашборд из коробки |
 | Инфраструктура | Docker Compose |
 
----
 
 ## Запуск
 Для запуска внутри каждого сервиса требуется выполнить: 
@@ -116,7 +115,16 @@ docker compose up --build
 | Kafka UI | http://localhost:8082 |
 | ClickHouse UI | http://localhost:3488 |
 
----
+## Тестирование
+
+Сервисный слой [booking-service](backend/booking-service/README.md) (core логика приложения) покрыт unit-тестами.
+
+Также реализован [интеграционный тест](backend/test/README.md), который охватывает полный цикл использования приложения. Тест запускается командой:
+
+```bash
+cd test
+make test
+```
 
 ## Скриншоты
 

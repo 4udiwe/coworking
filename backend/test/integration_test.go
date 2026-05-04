@@ -233,7 +233,7 @@ func TestIntegrationBookingFlow(t *testing.T) {
 
 	// 5. Get active bookings
 	t.Log("Step 5: Getting user's active bookings...")
-	respURL := fmt.Sprintf("%s/bookings?page=1&pageSize=10&status=active", bookingServiceURL)
+	respURL := fmt.Sprintf("%s/bookings/active?page=1&pageSize=10", bookingServiceURL)
 	resp, err = doRequest("GET", respURL, nil, accessToken)
 	if err != nil {
 		t.Fatalf("Failed to get bookings: %v", err)
@@ -280,7 +280,7 @@ func TestIntegrationBookingFlow(t *testing.T) {
 
 	// 7. Verify booking is cancelled
 	t.Log("Step 7: Verifying booking is cancelled...")
-	respURL = fmt.Sprintf("%s/bookings?page=1&pageSize=10", bookingServiceURL)
+	respURL = fmt.Sprintf("%s/bookings/history?page=1&pageSize=10", bookingServiceURL)
 	resp, err = doRequest("GET", respURL, nil, accessToken)
 	if err != nil {
 		t.Fatalf("Failed to get all bookings: %v", err)

@@ -38,7 +38,13 @@ func (r *DeviceRepository) Create(
 			device.DeviceToken,
 			device.Platform,
 		).
-		Suffix("RETURNING id").
+		Suffix(`
+			ON CONFLICT (device_token)
+			DO UPDATE SET
+				user_id  = EXCLUDED.user_id,
+				platform = EXCLUDED.platform
+			RETURNING id
+		`).
 		ToSql()
 
 	var id uuid.UUID

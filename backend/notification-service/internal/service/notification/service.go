@@ -57,7 +57,6 @@ func (s *NotificationService) RegisterDevice(
 
 	_, err := s.deviceRepo.Create(ctx, device)
 	if err != nil {
-		logrus.WithError(err).Error("failed to create device")
 		return ErrCannotRegisterDevice
 	}
 
