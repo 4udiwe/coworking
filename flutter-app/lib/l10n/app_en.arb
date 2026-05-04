@@ -90,5 +90,6 @@
     "bookingStatusCancelled": "Cancelled",
     "placeTypeOpenDesk": "Open desk",
     "noActiveBookings": "No active bookings",
-    "noHistoryBookings": "No booking history"
+    "noHistoryBookings": "No booking history",
+    "errorWhileCreatingBooking": "Error while creating booking"
 }

@@ -264,6 +264,7 @@ class CoworkingBloc extends Bloc<CoworkingEvent, CoworkingState> {
           error: e.toString(),
         ),
         actionMessage: () => e.toString(),
+        messageId: DateTime.now().millisecondsSinceEpoch.toString(),
         isError: true,
       ));
     }

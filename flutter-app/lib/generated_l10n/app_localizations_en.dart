@@ -280,4 +280,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noHistoryBookings => 'No booking history';
+
+  @override
+  String get errorWhileCreatingBooking => 'Error while creating booking';
 }

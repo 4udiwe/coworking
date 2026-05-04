@@ -643,6 +643,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No booking history'**
   String get noHistoryBookings;
+
+  /// No description provided for @errorWhileCreatingBooking.
+  ///
+  /// In en, this message translates to:
+  /// **'Error while creating booking'**
+  String get errorWhileCreatingBooking;
 }
 
 class _AppLocalizationsDelegate

@@ -90,5 +90,6 @@
     "bookingStatusCancelled": "Отменено",
     "placeTypeOpenDesk": "Рабочий стол",
     "noActiveBookings": "Нет активных бронирований",
-    "noHistoryBookings": "Нет истории бронирований"
+    "noHistoryBookings": "Нет истории бронирований",
+    "errorWhileCreatingBooking": "Ошибка при создании бронирования"
 }

@@ -1,3 +1,4 @@
+import 'package:coworking_app/core/l10n/localization_helper.dart';
 import 'package:coworking_app/features/analytics/bloc/analytics_event.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -126,16 +127,19 @@ class _CoworkingDetailsScreenState extends State<CoworkingDetailsScreen> {
                 ),
                 BlocListener<CoworkingBloc, CoworkingState>(
                   listenWhen: (prev, curr) =>
-                      prev.actionMessage != curr.actionMessage &&
+                      prev.messageId != curr.actionMessage &&
                       curr.actionMessage != null,
                   listener: (context, state) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(state.actionMessage!),
-                        backgroundColor: state.isError
-                            ? Colors.red
-                            : Colors.green,
-                      ),
+                      state.isError
+                          ? SnackBar(
+                              content: Text(context.l10n.errorWhileCreatingBooking),
+                              backgroundColor: Colors.red,
+                            )
+                          : SnackBar(
+                              content: Text(context.l10n.bookingCreatedSuccess),
+                              backgroundColor: Colors.green,
+                            ),
                     );
                   },
                 ),

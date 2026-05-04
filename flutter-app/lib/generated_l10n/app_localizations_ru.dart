@@ -284,4 +284,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get noHistoryBookings => 'Нет истории бронирований';
+
+  @override
+  String get errorWhileCreatingBooking => 'Ошибка при создании бронирования';
 }
