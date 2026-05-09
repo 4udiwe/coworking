@@ -1,4 +1,4 @@
-package mongo
+package media_repository
 
 import (
 	"context"
@@ -33,14 +33,11 @@ func New(db *mongo.Database) *MediaRepository {
 func (r *MediaRepository) Create(ctx context.Context, media entity.Media) (primitive.ObjectID, error) {
 	media.CreatedAt = time.Now()
 	media.UpdatedAt = time.Now()
+	media.Variants = []entity.ImageVariant{}
 
 	result, err := r.coll.InsertOne(ctx, media)
 	if err != nil {
-		logrus.WithError(err).WithFields(logrus.Fields{
-			"owner_type": media.OwnerType,
-			"owner_id":   media.OwnerID,
-			"purpose":    media.Purpose,
-		}).Error("failed to create media")
+		logrus.WithError(err).Error("failed to create media")
 		return primitive.NilObjectID, err
 	}
 
@@ -48,25 +45,6 @@ func (r *MediaRepository) Create(ctx context.Context, media entity.Media) (primi
 	logrus.WithField("media_id", id.Hex()).Info("media created")
 
 	return id, nil
-}
-
-func (r *MediaRepository) AddVariant(ctx context.Context, id primitive.ObjectID, variant entity.ImageVariant) error {
-	filter := bson.M{"_id": id}
-	update := bson.M{
-		"$push": bson.M{"variants": variant},
-		"$set":  bson.M{"updated_at": time.Now()},
-	}
-
-	result, err := r.coll.UpdateOne(ctx, filter, update)
-	if err != nil {
-		logrus.WithError(err).WithField("media_id", id.Hex()).Error("failed to add variant")
-		return err
-	}
-	if result.MatchedCount == 0 {
-		return ErrMediaNotFound
-	}
-
-	return nil
 }
 
 func (r *MediaRepository) UpdateStatus(ctx context.Context, id primitive.ObjectID, status entity.ProcessingStatus) error {
@@ -128,86 +106,6 @@ func (r *MediaRepository) UpdateStatusAndVariants(
 	return nil
 }
 
-func (r *MediaRepository) SoftDelete(ctx context.Context, id primitive.ObjectID) error {
-	now := time.Now()
-	filter := bson.M{
-		"_id":        id,
-		"deleted_at": bson.M{"$exists": false}, // идемпотентность: уже удалённые не трогаем
-	}
-	update := bson.M{
-		"$set": bson.M{
-			"deleted_at": now,
-			"updated_at": now,
-		},
-	}
-
-	result, err := r.coll.UpdateOne(ctx, filter, update)
-	if err != nil {
-		logrus.WithError(err).WithField("media_id", id.Hex()).Error("failed to soft delete media")
-		return err
-	}
-	if result.MatchedCount == 0 {
-		return ErrMediaNotFound
-	}
-
-	logrus.WithField("media_id", id.Hex()).Info("media soft deleted")
-
-	return nil
-}
-
-func (r *MediaRepository) SoftDeleteCoverByOwner(ctx context.Context, ownerType, ownerID string) error {
-	now := time.Now()
-	filter := bson.M{
-		"owner_type": ownerType,
-		"owner_id":   ownerID,
-		"purpose":    entity.PurposeCover,
-		"deleted_at": bson.M{"$exists": false},
-	}
-	update := bson.M{
-		"$set": bson.M{
-			"deleted_at": now,
-			"updated_at": now,
-		},
-	}
-
-	// UpdateMany на случай если по какой-то причине обложек несколько (defensive)
-	_, err := r.coll.UpdateMany(ctx, filter, update)
-	if err != nil {
-		logrus.WithError(err).WithFields(logrus.Fields{
-			"owner_type": ownerType,
-			"owner_id":   ownerID,
-		}).Error("failed to soft delete cover")
-		return err
-	}
-
-	return nil
-}
-
-func (r *MediaRepository) UpdateSortOrder(ctx context.Context, orders map[primitive.ObjectID]int) error {
-	// Используем bulk write для атомарного обновления всех порядков за один round-trip
-	models := make([]mongo.WriteModel, 0, len(orders))
-
-	for id, order := range orders {
-		models = append(models, mongo.NewUpdateOneModel().
-			SetFilter(bson.M{"_id": id}).
-			SetUpdate(bson.M{
-				"$set": bson.M{
-					"sort_order": order,
-					"updated_at": time.Now(),
-				},
-			}),
-		)
-	}
-
-	_, err := r.coll.BulkWrite(ctx, models, options.BulkWrite().SetOrdered(false))
-	if err != nil {
-		logrus.WithError(err).Error("failed to update sort orders")
-		return err
-	}
-
-	return nil
-}
-
 func (r *MediaRepository) IncrementRetryCount(ctx context.Context, id primitive.ObjectID) error {
 	filter := bson.M{"_id": id}
 	update := bson.M{
@@ -238,80 +136,6 @@ func (r *MediaRepository) GetByID(ctx context.Context, id primitive.ObjectID) (e
 	}
 
 	return media, nil
-}
-
-func (r *MediaRepository) GetByOwner(ctx context.Context, ownerType, ownerID string) ([]entity.Media, error) {
-	filter := bson.M{
-		"owner_type": ownerType,
-		"owner_id":   ownerID,
-		"deleted_at": bson.M{"$exists": false},
-	}
-	opts := options.Find().SetSort(bson.D{
-		{Key: "sort_order", Value: 1},
-		{Key: "created_at", Value: 1},
-	})
-
-	cursor, err := r.coll.Find(ctx, filter, opts)
-	if err != nil {
-		logrus.WithError(err).WithFields(logrus.Fields{
-			"owner_type": ownerType,
-			"owner_id":   ownerID,
-		}).Error("failed to get media by owner")
-		return nil, err
-	}
-	defer cursor.Close(ctx)
-
-	var result []entity.Media
-	if err := cursor.All(ctx, &result); err != nil {
-		logrus.WithError(err).Error("failed to decode media list")
-		return nil, err
-	}
-
-	return result, nil
-}
-
-func (r *MediaRepository) GetCoverByOwner(ctx context.Context, ownerType, ownerID string) (entity.Media, error) {
-	filter := bson.M{
-		"owner_type": ownerType,
-		"owner_id":   ownerID,
-		"purpose":    entity.PurposeCover,
-		"deleted_at": bson.M{"$exists": false},
-	}
-
-	var media entity.Media
-	err := r.coll.FindOne(ctx, filter).Decode(&media)
-	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return entity.Media{}, ErrMediaNotFound
-		}
-		logrus.WithError(err).WithFields(logrus.Fields{
-			"owner_type": ownerType,
-			"owner_id":   ownerID,
-		}).Error("failed to get cover by owner")
-		return entity.Media{}, err
-	}
-
-	return media, nil
-}
-
-func (r *MediaRepository) CountGalleryByOwner(ctx context.Context, ownerType, ownerID string) (int, error) {
-	filter := bson.M{
-		"owner_type": ownerType,
-		"owner_id":   ownerID,
-		"purpose":    entity.PurposeGallery,
-		"deleted_at": bson.M{"$exists": false},
-	}
-
-	count, err := r.coll.CountDocuments(ctx, filter)
-	if err != nil {
-		logrus.WithError(err).WithFields(logrus.Fields{
-			"owner_type": ownerType,
-			"owner_id":   ownerID,
-		}).Error("failed to count gallery media")
-		return 0, err
-	}
-
-	return int(count), nil
 }
 
 func (r *MediaRepository) FindStale(ctx context.Context, threshold time.Duration, limit int) ([]entity.Media, error) {
@@ -366,27 +190,48 @@ func (r *MediaRepository) GetByIDs(
 	return result, nil
 }
 
-func (r *MediaRepository) UpdatePurpose(ctx context.Context, id primitive.ObjectID, purpose entity.MediaPurpose) error {
+func (r *MediaRepository) Delete(
+	ctx context.Context,
+	id primitive.ObjectID,
+) error {
 	filter := bson.M{"_id": id}
-	update := bson.M{
-		"$set": bson.M{
-			"purpose":    purpose,
-			"updated_at": time.Now(),
-		},
-	}
-
-	result, err := r.coll.UpdateOne(ctx, filter, update)
+	result, err := r.coll.DeleteOne(ctx, filter)
 	if err != nil {
-		logrus.WithError(err).WithFields(logrus.Fields{
-			"media_id": id.Hex(),
-			"purpose":  purpose,
-		}).Error("failed to update media purpose")
+		logrus.WithError(err).WithField("media_id", id.Hex()).Error("failed to delete media")
 		return err
 	}
-
-	if result.MatchedCount == 0 {
+	if result.DeletedCount == 0 {
 		return ErrMediaNotFound
 	}
-
+	logrus.WithField("media_id", id.Hex()).Info("media deleted")
 	return nil
+}
+
+func (r *MediaRepository) FindExpired(
+	ctx context.Context,
+	now time.Time,
+	limit int,
+) ([]entity.Media, error) {
+	filter := bson.M{
+		//"status": entity.StatusProcessed,
+		"variants": bson.M{
+			"$elemMatch": bson.M{
+				"expires_at": bson.M{"$lt": now},
+			},
+		},
+	}
+	opts := options.Find().SetLimit(int64(limit))
+	cursor, err := r.coll.Find(ctx, filter, opts)
+	if err != nil {
+		logrus.WithError(err).Error("failed to find expired media")
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var result []entity.Media
+	if err := cursor.All(ctx, &result); err != nil {
+		logrus.WithError(err).Error("failed to decode expired media list")
+		return nil, err
+	}
+	return result, nil
 }

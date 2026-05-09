@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/4udiwe/coworking/backend/media-service/internal/entity"
+	object_repository "github.com/4udiwe/coworking/backend/media-service/internal/repository/object"
 	"github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/sync/errgroup"
@@ -16,45 +17,23 @@ type MediaService struct {
 	repo      MediaRepository
 	storage   ObjectStorage
 	processor ImageProcessor
-	baseURL   string
 
 	urlTTL time.Duration
 }
 
-func New(repo MediaRepository, storage ObjectStorage, baseURL string) *MediaService {
+func New(repo MediaRepository, storage ObjectStorage, processor ImageProcessor) *MediaService {
 	return &MediaService{
-		repo:    repo,
-		storage: storage,
-		baseURL: baseURL,
-		urlTTL:  15 * time.Minute,
+		repo:      repo,
+		storage:   storage,
+		processor: processor,
+		urlTTL:    15 * time.Minute,
 	}
 }
 
 func (s *MediaService) Upload(ctx context.Context, input entity.UploadInput) (entity.UploadResult, error) {
 
-	// 1. Проверка лимита галереи
-	if input.Purpose == entity.PurposeGallery {
-		count, err := s.repo.CountGalleryByOwner(ctx, input.OwnerType, input.OwnerID)
-		if err != nil {
-			return entity.UploadResult{}, err
-		}
-		if count >= entity.MaxGallerySize {
-			return entity.UploadResult{}, fmt.Errorf("gallery limit exceeded")
-		}
-	}
-
-	// 2. Cover — удалить старый
-	if input.Purpose == entity.PurposeCover {
-		if err := s.repo.SoftDeleteCoverByOwner(ctx, input.OwnerType, input.OwnerID); err != nil {
-			return entity.UploadResult{}, err
-		}
-	}
-
 	// 3. Создаём media
 	media := entity.Media{
-		OwnerType:    input.OwnerType,
-		OwnerID:      input.OwnerID,
-		Purpose:      input.Purpose,
 		OriginalName: input.FileName,
 		MimeType:     input.ContentType,
 		Status:       entity.StatusPending,
@@ -69,7 +48,7 @@ func (s *MediaService) Upload(ctx context.Context, input entity.UploadInput) (en
 	media.ID = id
 
 	// 4. Upload original
-	originalKey := media.StorageKeyFor(entity.SizeOriginal)
+	originalKey := object_repository.BuildKey(media.ID.Hex(), string(entity.SizeOriginal))
 
 	if err := s.storage.Upload(ctx, originalKey, input.Data, "image/webp"); err != nil {
 		return entity.UploadResult{}, err
@@ -80,7 +59,7 @@ func (s *MediaService) Upload(ctx context.Context, input entity.UploadInput) (en
 	if err != nil {
 		return entity.UploadResult{}, err
 	}
-	thumbKey := media.StorageKeyFor(entity.SizeThumbnail)
+	thumbKey := object_repository.BuildKey(media.ID.Hex(), string(entity.SizeThumbnail))
 
 	// 5. Upload thumbnail
 	if err := s.storage.Upload(ctx, thumbKey, thumbData, "image/webp"); err != nil {
@@ -106,14 +85,11 @@ func (s *MediaService) Upload(ctx context.Context, input entity.UploadInput) (en
 	// 7. async resize
 	s.processAsyncSizes(media)
 
-	// 8. presigned URL
-	url, _ := s.storage.GeneratePresignedURL(ctx, thumbKey, s.urlTTL)
-
 	return entity.UploadResult{
 		ID:     id.Hex(),
 		Status: string(entity.StatusProcessing),
 		URLs: map[string]string{
-			"thumbnail": url,
+			"thumbnail": thumbKey,
 		},
 	}, nil
 }
@@ -128,7 +104,7 @@ func (s *MediaService) processAsyncSizes(media entity.Media) {
 		log := logrus.WithField("media_id", media.ID.Hex())
 
 		// скачиваем original
-		originalKey := media.StorageKeyFor(entity.SizeOriginal)
+		originalKey := object_repository.BuildKey(media.ID.Hex(), string(entity.SizeOriginal))
 
 		originalData, err := s.storage.Get(ctx, originalKey)
 		if err != nil {
@@ -154,7 +130,7 @@ func (s *MediaService) processAsyncSizes(media entity.Media) {
 					return err
 				}
 
-				key := media.StorageKeyFor(size)
+				key := object_repository.BuildKey(media.ID.Hex(), string(size))
 
 				// upload
 				err = s.storage.Upload(ctx, key, resized, "image/webp")
@@ -221,49 +197,9 @@ func (s *MediaService) GetByIDs(
 
 	result := make(map[string]entity.MediaDTO, len(mediaList))
 
-	// 2. semaphore для ограничения параллелизма
-	sem := make(chan struct{}, 10)
-
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-
-	for _, rm := range mediaList {
-
-		m := rm
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			dto := entity.MediaDTO{
-				ID:     m.ID.Hex(),
-				Status: string(m.Status),
-				URLs:   make(map[string]string),
-			}
-
-			for _, v := range m.Variants {
-
-				// ограничиваем concurrency
-				sem <- struct{}{}
-
-				url, err := s.storage.GeneratePresignedURL(ctx, v.StorageKey, s.urlTTL)
-
-				<-sem
-
-				if err != nil {
-					continue
-				}
-
-				dto.URLs[string(v.Size)] = url
-			}
-
-			mu.Lock()
-			result[m.ID.Hex()] = dto
-			mu.Unlock()
-		}()
+	for _, m := range mediaList {
+		result[m.ID.Hex()] = s.buildDTO(m)
 	}
-
-	wg.Wait()
 
 	return result, nil
 }
@@ -286,33 +222,6 @@ func (s *MediaService) GetByID(
 	return dto, nil
 }
 
-func (s *MediaService) GetByOwner(
-	ctx context.Context,
-	ownerType, ownerID string,
-) ([]entity.MediaDTO, error) {
-
-	mediaList, err := s.repo.GetByOwner(ctx, ownerType, ownerID)
-	if err != nil {
-		return nil, err
-	}
-
-	return s.buildDTOList(ctx, mediaList), nil
-}
-
-func (s *MediaService) GetCoverByOwner(
-	ctx context.Context,
-	ownerType, ownerID string,
-) (entity.MediaDTO, error) {
-
-	m, err := s.repo.GetCoverByOwner(ctx, ownerType, ownerID)
-	if err != nil {
-		return entity.MediaDTO{}, err
-	}
-
-	dto := s.buildDTO(ctx, m)
-	return dto, nil
-}
-
 func (s *MediaService) Delete(ctx context.Context, id primitive.ObjectID) error {
 
 	m, err := s.repo.GetByID(ctx, id)
@@ -320,63 +229,21 @@ func (s *MediaService) Delete(ctx context.Context, id primitive.ObjectID) error 
 		return err
 	}
 
-	// 1. soft delete
-	if err := s.repo.SoftDelete(ctx, id); err != nil {
+	if err := s.repo.Delete(ctx, id); err != nil {
 		return err
 	}
 
-	// 2. удаляем все варианты
 	for _, v := range m.Variants {
-		_ = s.storage.Delete(context.Background(), v.StorageKey)
-	}
-
-	// 3. удаляем original
-	originalKey := m.StorageKeyFor(entity.SizeOriginal)
-	_ = s.storage.Delete(context.Background(), originalKey)
-
-	return nil
-}
-
-func (s *MediaService) Reorder(
-	ctx context.Context,
-	orders map[primitive.ObjectID]int,
-) error {
-
-	err := s.repo.UpdateSortOrder(ctx, orders)
-	if err != nil {
-		return err
+		err = s.storage.Delete(context.Background(), v.StorageKey)
+		if err != nil {
+			logrus.WithError(err).WithField("storageKey", v.StorageKey).Warn("failed to delete media variant from storage")
+		}
 	}
 
 	return nil
-}
-
-func (s *MediaService) SetCover(
-	ctx context.Context,
-	ownerType, ownerID string,
-	mediaID primitive.ObjectID,
-) error {
-
-	m, err := s.repo.GetByID(ctx, mediaID)
-	if err != nil {
-		return err
-	}
-
-	// 1. валидация
-	if m.OwnerType != ownerType || m.OwnerID != ownerID {
-		return fmt.Errorf("media does not belong to owner")
-	}
-
-	// 2. удалить старую обложку
-	if err := s.repo.SoftDeleteCoverByOwner(ctx, ownerType, ownerID); err != nil {
-		return err
-	}
-
-	// 3. обновить текущую media → сделать cover
-	return s.repo.UpdatePurpose(ctx, mediaID, entity.PurposeCover)
 }
 
 func (s *MediaService) buildDTO(
-	ctx context.Context,
 	m entity.Media,
 ) entity.MediaDTO {
 
@@ -387,43 +254,33 @@ func (s *MediaService) buildDTO(
 	}
 
 	for _, v := range m.Variants {
-
-		url, err := s.storage.GeneratePresignedURL(ctx, v.StorageKey, s.urlTTL)
-		if err != nil {
-			continue
-		}
-
-		dto.URLs[string(v.Size)] = url
+		dto.URLs[string(v.Size)] = fmt.Sprintf("/media/%s/%s", m.ID.Hex(), v.Size)
 	}
 
 	return dto
 }
 
-func (s *MediaService) buildDTOList(
-	ctx context.Context,
-	list []entity.Media,
-) []entity.MediaDTO {
+// HandleStale обрабатывает "зависшие" media, которые долго в статусе processing.
+// Если media можно ретраить (retry_count < MaxRetry), то увеличивает retry_count и запускает процессинг заново.
+// Если нельзя, то помечает media как failed.
+func (s *MediaService) HandleStale(ctx context.Context, limit int) error {
 
-	result := make([]entity.MediaDTO, len(list))
-
-	sem := make(chan struct{}, 10)
-	var wg sync.WaitGroup
-
-	for i, m := range list {
-
-		i, m := i, m
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			sem <- struct{}{}
-			defer func() { <-sem }()
-
-			result[i] = s.buildDTO(ctx, m)
-		}()
+	staleList, err := s.repo.FindStale(ctx, entity.StaleThreshold, limit)
+	if err != nil {
+		return err
 	}
 
-	wg.Wait()
-	return result
+	for _, m := range staleList {
+
+		if !m.CanRetry() {
+			_ = s.repo.UpdateStatus(ctx, m.ID, entity.StatusFailed)
+			continue
+		}
+
+		_ = s.repo.IncrementRetryCount(ctx, m.ID)
+
+		s.processAsyncSizes(m)
+	}
+
+	return nil
 }

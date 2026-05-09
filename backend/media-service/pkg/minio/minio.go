@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/url"
 	"time"
 
 	"github.com/minio/minio-go/v7"
@@ -22,18 +21,15 @@ type Client struct {
 	client *minio.Client
 	bucket string
 
-	publicEndpoint string
-
 	connAttempts int
 	connTimeout  time.Duration
 }
 
-func New(endpoint, publicEndpoint, accessKey, secretKey, bucket string, useSSL bool) (*Client, error) {
+func New(endpoint, accessKey, secretKey, bucket string) (*Client, error) {
 	c := &Client{
 		connAttempts:   defaultConnAttempts,
 		connTimeout:    defaultConnectTimeout,
 		bucket:         bucket,
-		publicEndpoint: publicEndpoint,
 	}
 
 	var err error
@@ -44,7 +40,6 @@ func New(endpoint, publicEndpoint, accessKey, secretKey, bucket string, useSSL b
 
 		c.client, err = minio.New(endpoint, &minio.Options{
 			Creds:  credentials.NewStaticV4(accessKey, secretKey, ""),
-			Secure: useSSL,
 		})
 
 		if err != nil {
@@ -119,36 +114,4 @@ func (c *Client) Delete(ctx context.Context, objectName string) error {
 func (c *Client) Ping(ctx context.Context) error {
 	_, err := c.client.ListBuckets(ctx)
 	return err
-}
-
-func (c *Client) GeneratePresignedURL(
-	ctx context.Context,
-	objectName string,
-	expiry time.Duration,
-) (string, error) {
-
-	reqParams := make(url.Values)
-
-	presignedURL, err := c.client.PresignedGetObject(
-		ctx,
-		c.bucket,
-		objectName,
-		expiry,
-		reqParams,
-	)
-	if err != nil {
-		logrus.WithError(err).
-			WithField("object", objectName).
-			Error("minio presigned url failed")
-		return "", err
-	}
-
-	u, err := url.Parse(presignedURL.String())
-	if err != nil {
-		return "", err
-	}
-
-	u.Host = c.publicEndpoint
-
-	return u.String(), nil
 }

@@ -1,0 +1,30 @@
+app:
+  name: "coworking-booking-service"
+  version: "1.0.0"
+
+http:
+  port: "8084"
+
+logger:
+  level: "info"
+
+mongodb:
+  uri: "mongodb://root:password@mongodb:27017"
+  database: "coworking_media"
+
+minio:
+  endpoint: "minio:9000"
+  access_key: "minio_access_key"
+  secret_key: "minio_secret_key"
+  bucket_name: "media"
+  use_ssl: false
+  base_url: "http://minio:9000/media"
+
+auth:
+  public_key_path: "/app/keys/public.pem"
+
+grpc:
+  port: "9090"
+
+shutdown:
+  timeout: "30s"

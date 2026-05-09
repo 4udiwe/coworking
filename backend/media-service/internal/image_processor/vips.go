@@ -31,10 +31,8 @@ func (p *Processor) ResizeToWidth(
 	}
 	defer img.Close()
 
-	origWidth, origHeight, err := img.Size()
-	if err != nil {
-		return nil, 0, 0, err
-	}
+	origWidth := img.Width()
+	origHeight := img.Height()
 
 	// если уже меньше — не увеличиваем
 	if origWidth <= width {

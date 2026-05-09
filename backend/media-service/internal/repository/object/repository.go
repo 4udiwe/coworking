@@ -1,11 +1,10 @@
-package minio
+package object_repository
 
 import (
 	"bytes"
 	"context"
 	"fmt"
 	"io"
-	"time"
 
 	minioClient "github.com/4udiwe/coworking/backend/media-service/pkg/minio"
 	"github.com/sirupsen/logrus"
@@ -21,18 +20,24 @@ func New(client *minioClient.Client) *Storage {
 	}
 }
 
+// Upload загружает файл из памяти ([]byte).
 func (s *Storage) Upload(ctx context.Context, key string, data []byte, contentType string) error {
+	// bytes.Reader реализует io.Reader, это lossless преобразование
 	reader := bytes.NewReader(data)
 
+	// Вызываем MinIO клиент с преобразованными параметрами
 	err := s.client.Upload(ctx, key, reader, int64(len(data)), contentType)
 	if err != nil {
 		logrus.WithError(err).WithField("key", key).Error("storage upload failed")
 		return err
 	}
 
+	logrus.WithField("key", key).WithField("size", len(data)).Debug("file uploaded")
 	return nil
 }
 
+// Get скачивает файл ([]byte).
+// Адаптирует: *minio.Object → []byte (io.ReadAll) для медиа-сервиса.
 func (s *Storage) Get(ctx context.Context, key string) ([]byte, error) {
 	obj, err := s.client.Get(ctx, key)
 	if err != nil {
@@ -41,12 +46,14 @@ func (s *Storage) Get(ctx context.Context, key string) ([]byte, error) {
 	}
 	defer obj.Close()
 
+	// Читаем весь content
 	data, err := io.ReadAll(obj)
 	if err != nil {
 		logrus.WithError(err).WithField("key", key).Error("storage read failed")
 		return nil, err
 	}
 
+	logrus.WithField("key", key).WithField("size", len(data)).Debug("file downloaded")
 	return data, nil
 }
 
@@ -57,24 +64,10 @@ func (s *Storage) Delete(ctx context.Context, key string) error {
 		return err
 	}
 
+	logrus.WithField("key", key).Debug("file deleted")
 	return nil
 }
 
-func (s *Storage) GeneratePresignedURL(
-	ctx context.Context,
-	key string,
-	expiry time.Duration,
-) (string, error) {
-
-	url, err := s.client.GeneratePresignedURL(ctx, key, expiry)
-	if err != nil {
-		logrus.WithError(err).WithField("key", key).Error("storage presigned url failed")
-		return "", err
-	}
-
-	return url, nil
-}
-
-func BuildKey(ownerID, mediaID, size string) string {
-	return fmt.Sprintf("coworkings/%s/%s/%s.webp", ownerID, mediaID, size)
+func BuildKey(mediaID, size string) string {
+    return fmt.Sprintf("/%s/%s.webp", mediaID, size)
 }

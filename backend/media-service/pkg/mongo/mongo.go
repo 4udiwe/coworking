@@ -124,28 +124,6 @@ func ensureIndexes(ctx context.Context, db *mongo.Database) error {
 	coll := db.Collection(collectionName)
 
 	indexes := []mongo.IndexModel{
-		// Основной запрос: "все активные фото коворкинга X", отсортированные для галереи.
-		// Покрывает GetByOwner().
-		{
-			Keys: bson.D{
-				{Key: "owner_type", Value: 1},
-				{Key: "owner_id", Value: 1},
-				{Key: "deleted_at", Value: 1},
-				{Key: "sort_order", Value: 1},
-			},
-			Options: options.Index().SetName("idx_owner_active_sorted"),
-		},
-		// Запрос обложки коворкинга — самый частый, в каждой карточке.
-		// Покрывает GetCoverByOwner() и SoftDeleteCoverByOwner().
-		{
-			Keys: bson.D{
-				{Key: "owner_type", Value: 1},
-				{Key: "owner_id", Value: 1},
-				{Key: "purpose", Value: 1},
-				{Key: "deleted_at", Value: 1},
-			},
-			Options: options.Index().SetName("idx_owner_purpose"),
-		},
 		// Stale checker: поиск застрявших в processing.
 		// Partial index — маленький, работает только по status=processing.
 		// Покрывает FindStale().
@@ -158,6 +136,17 @@ func ensureIndexes(ctx context.Context, db *mongo.Database) error {
 				SetPartialFilterExpression(bson.M{
 					"status": string(entity.StatusProcessing),
 				}),
+		},
+
+		// TTL для автоматической очистки старых записей.
+
+		{
+			Keys: bson.D{
+				{Key: "expires_at", Value: 1},
+			},
+			Options: options.Index().
+				SetExpireAfterSeconds(0).
+				SetName("idx_ttl_expire"),
 		},
 	}
 
