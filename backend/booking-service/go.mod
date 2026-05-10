@@ -56,6 +56,7 @@ require (
 	github.com/labstack/echo/v4 v4.15.2
 	github.com/lann/builder v0.0.0-20180802200727-47ae307949d0 // indirect
 	github.com/lann/ps v0.0.0-20150810152359-62de8c46ede0 // indirect
+	github.com/lib/pq v1.12.3
 	github.com/pressly/goose/v3 v3.27.1
 	github.com/samber/lo v1.53.0
 	github.com/sirupsen/logrus v1.9.4

@@ -449,7 +449,6 @@ services:
       MINIO_ROOT_PASSWORD: minioadmin
     command: server /data --console-address ":9001"
     ports:
-      - "9000:9000"
       - "9001:9001" # Web console (http://localhost:9001)
     volumes:
       - minio_data:/data
@@ -477,34 +476,6 @@ services:
         condition: service_healthy
     environment:
       CONFIG_PATH: "/config/config.yaml"
-      ENV: development
-      LOG_LEVEL: debug
-
-      # HTTP Server
-      HTTP_PORT: 8084
-
-      # gRPC Server
-      GRPC_PORT: 50051
-
-      # MongoDB
-      MONGODB_URI: mongodb://root:password@mongodb:27017
-      MONGODB_DB_NAME: media
-
-      # MinIO
-      MINIO_ENDPOINT: minio:9000
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin
-      MINIO_BUCKET_NAME: media
-      MINIO_USE_SSL: "false"
-      MINIO_PUBLIC_BASE_URL: localhost:8080 # для локалки; в проде — https://media.example.com
-
-      # Media Service
-      MEDIA_MAX_FILE_SIZE: "20971520" # 20MB
-      MEDIA_MIN_WIDTH: "400"
-      MEDIA_MIN_HEIGHT: "300"
-
-      # Graceful shutdown
-      SHUTDOWN_TIMEOUT: 30s
     networks:
       - app-network
     healthcheck:

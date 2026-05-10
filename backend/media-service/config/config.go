@@ -13,7 +13,6 @@ type (
 		HTTP     HTTP     `yaml:"http"`
 		Auth     Auth     `yaml:"auth"`
 		Log      Log      `yaml:"logger"`
-		GRPC     GRPC     `yaml:"grpc"`
 		MongoDB  MongoDB  `yaml:"mongodb"`
 		MinIO    MinIO    `yaml:"minio"`
 		Shutdown Shutdown `yaml:"shutdown"`
@@ -28,10 +27,6 @@ type (
 		Port string `env-required:"true" yaml:"port" env:"SERVER_PORT"`
 	}
 
-	GRPC struct {
-		Port string `env-required:"true" yaml:"grpc_port" env:"GRPC_PORT"`
-	}
-
 	Log struct {
 		Level string `env-required:"true" yaml:"level" env:"LOG_LEVEL"`
 	}
@@ -42,12 +37,11 @@ type (
 	}
 
 	MinIO struct {
-		Endpoint      string `yaml:"endpoint" env:"MINIO_ENDPOINT" env-default:"localhost:9000"`
-		AccessKey     string `yaml:"access_key" env:"MINIO_ACCESS_KEY" env-default:"minioadmin"`
-		SecretKey     string `yaml:"secret_key" env:"MINIO_SECRET_KEY" env-default:"minioadmin"`
-		BucketName    string `yaml:"bucket_name" env:"MINIO_BUCKET_NAME" env-default:"media"`
-		UseSSL        bool   `yaml:"use_ssl" env:"MINIO_USE_SSL" env-default:"false"`
-		PublicBaseURL string `yaml:"public_base_url" env:"MINIO_PUBLIC_BASE_URL" env-required:"true"` // пример: "https://media.example.com" или "http://localhost:9000"
+		Endpoint   string `yaml:"endpoint" env:"MINIO_ENDPOINT" env-default:"localhost:9000"`
+		AccessKey  string `yaml:"access_key" env:"MINIO_ACCESS_KEY" env-default:"minioadmin"`
+		SecretKey  string `yaml:"secret_key" env:"MINIO_SECRET_KEY" env-default:"minioadmin"`
+		BucketName string `yaml:"bucket_name" env:"MINIO_BUCKET_NAME" env-default:"media"`
+		UseSSL     bool   `yaml:"use_ssl" env:"MINIO_USE_SSL" env-default:"false"`
 	}
 
 	Auth struct {

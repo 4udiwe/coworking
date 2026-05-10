@@ -8,10 +8,13 @@ import (
 )
 
 type Coworking struct {
-	ID        uuid.UUID
-	Name      string
-	Address   string
-	IsActive  bool
+	ID       uuid.UUID
+	Name     string
+	Address  string
+	IsActive bool
+
+	MediaIDs []string
+
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
