@@ -19,6 +19,7 @@ tags:
   - name: Bookings
   - name: Analytics
   - name: Admin
+  - name: Media
 
 paths:
   ##################
@@ -297,7 +298,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/BookingsPagedResponse"
-  
+
   /bookings/history:
     get:
       tags: [Bookings]
@@ -1098,6 +1099,80 @@ paths:
                     items:
                       $ref: "#/components/schemas/Place"
 
+  /media/upload:
+    post:
+      tags: [Media]
+      summary: Загрузить файл (изображение) и получить mediaID
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Файл загружен, возвращает mediaID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mediaId:
+                    type: string
+                    format: uuid
+
+  /media/delete:
+    delete:
+      tags: [Media]
+      summary: Удалить файл по mediaID
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: mediaId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Файл удалён
+
+  /media/{mediaId}/{size}.webp:
+    get:
+      tags: [Media]
+      summary: Получить изображение по mediaID и размеру
+      parameters:
+        - in: path
+          name: mediaId
+          required: true
+          schema:
+            type: string
+
+        - in: path
+          name: size
+          required: true
+          schema:
+            type: string
+            enum:
+              - thumbnail
+              - medium
+              - large
+              - original
+
+      responses:
+        "200":
+          description: Image file
+          content:
+            image/webp:
+              schema:
+                type: string
+                format: binary
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1267,6 +1342,11 @@ components:
           type: string
         address:
           type: string
+        mediaIDs:
+          type: array
+          items:
+            type: string
+          example: ["69ff868ba31446f59671503a", "69fef0d851095c80929ea7cf"]
         isActive:
           type: boolean
 

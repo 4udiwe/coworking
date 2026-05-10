@@ -14,6 +14,7 @@ import (
 	media_repository "github.com/4udiwe/coworking/backend/media-service/internal/repository/media"
 	object_repository "github.com/4udiwe/coworking/backend/media-service/internal/repository/object"
 	media_service "github.com/4udiwe/coworking/backend/media-service/internal/service/media"
+	"github.com/4udiwe/coworking/backend/media-service/internal/worker"
 	"github.com/4udiwe/coworking/backend/media-service/pkg/minio"
 	mongodb "github.com/4udiwe/coworking/backend/media-service/pkg/mongo"
 	"github.com/labstack/echo/v4"
@@ -34,6 +35,9 @@ type App struct {
 
 	// Service
 	mediaService *media_service.MediaService
+
+	// Stale checker
+	staleChecker *worker.StaleChecker
 
 	// Handlers
 	deleteMediaHandler       api.Handler
@@ -105,6 +109,13 @@ func (app *App) Start() {
 		app.objectStorage,
 		image_processor.New(),
 	)
+
+	// ──────────────────────────────────────────
+	// Workers
+	// ──────────────────────────────────────────
+	app.staleChecker = worker.NewStaleChecker(app.mediaService, app.cfg.StaleChecker.Interval, app.cfg.StaleChecker.Limit)
+	app.staleChecker.Start(context.Background())
+	defer app.staleChecker.Stop()
 
 	// ──────────────────────────────────────────
 	// HTTP Server (Echo)

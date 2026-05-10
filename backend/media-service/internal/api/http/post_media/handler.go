@@ -25,10 +25,7 @@ func (h *handler) Handle(c echo.Context) error {
     
     // Привязываем form-data вручную
     var req dto.PostMediaRequest
-    
-    // Bind form values
-    req.UploadedBy = c.FormValue("uploaded_by")
-    
+        
     // Получаем файл
     file, err := c.FormFile("file")
     if err != nil {
@@ -59,7 +56,6 @@ func (h *handler) Handle(c echo.Context) error {
         FileName:    req.File.Filename,
         ContentType: req.File.Header.Get("Content-Type"),
         Data:        data,
-        UploadedBy:  req.UploadedBy,
     }
     
     uploadResult, err := h.s.Upload(c.Request().Context(), uploadInput)

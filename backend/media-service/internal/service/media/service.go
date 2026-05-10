@@ -37,7 +37,6 @@ func (s *MediaService) Upload(ctx context.Context, input entity.UploadInput) (en
 		OriginalName: input.FileName,
 		MimeType:     input.ContentType,
 		Status:       entity.StatusPending,
-		UploadedBy:   input.UploadedBy,
 	}
 
 	id, err := s.repo.Create(ctx, media)

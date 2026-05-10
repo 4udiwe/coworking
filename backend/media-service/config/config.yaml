@@ -23,3 +23,7 @@ auth:
 
 shutdown:
   timeout: "30s"
+
+stale_checker:
+  interval: "5m"
+  limit: 50

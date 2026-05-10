@@ -9,13 +9,14 @@ import (
 
 type (
 	Config struct {
-		App      App      `yaml:"app"`
-		HTTP     HTTP     `yaml:"http"`
-		Auth     Auth     `yaml:"auth"`
-		Log      Log      `yaml:"logger"`
-		MongoDB  MongoDB  `yaml:"mongodb"`
-		MinIO    MinIO    `yaml:"minio"`
-		Shutdown Shutdown `yaml:"shutdown"`
+		App          App          `yaml:"app"`
+		HTTP         HTTP         `yaml:"http"`
+		Auth         Auth         `yaml:"auth"`
+		Log          Log          `yaml:"logger"`
+		MongoDB      MongoDB      `yaml:"mongodb"`
+		MinIO        MinIO        `yaml:"minio"`
+		Shutdown     Shutdown     `yaml:"shutdown"`
+		StaleChecker StaleChecker `yaml:"stale_checker"`
 	}
 
 	App struct {
@@ -50,6 +51,11 @@ type (
 
 	Shutdown struct {
 		Timeout time.Duration `yaml:"timeout" env:"SHUTDOWN_TIMEOUT" env-default:"30s"`
+	}
+
+	StaleChecker struct {
+		Interval time.Duration `yaml:"interval" env:"STALE_CHECKER_INTERVAL" env-default:"5m"`
+		Limit    int           `yaml:"limit" env:"STALE_CHECKER_LIMIT" env-default:"50"`
 	}
 )
 

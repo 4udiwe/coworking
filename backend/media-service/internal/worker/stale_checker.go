@@ -15,8 +15,11 @@ type MediaService interface {
 // StaleChecker периодически проверяет медиа в статусе Processing, которые висят там слишком долго (например, больше 30 минут).
 // Если таких медиа много, то может обрабатывать их пачками (например, по 50 штук за раз).
 // Для каждого такого медиа:
+//
 // 1. Если retry_count >= MaxRetryCount → помечаем статусом Failed, чтобы не пытаться обрабатывать бесконечно.
+//
 // 2. Иначе увеличиваем retry_count на единицу и перезапускаем обработку (например, отправляем в очередь на ресайз).
+//
 // Это позволяет автоматически "отлавливать" медиа, которые по каким-то причинам зависли в статусе Processing,
 // и либо повторять попытки обработки, либо помечать их как Failed после определённого количества неудачных попыток.
 type StaleChecker struct {
@@ -60,7 +63,7 @@ func (w *StaleChecker) Start(parentCtx context.Context) {
 // run запускает бесконечный цикл, который каждые s.interval вызывает HandleStale для обработки stale media.
 func (s *StaleChecker) run(ctx context.Context) {
 
-	ticker := time.NewTicker(5 * time.Minute)
+	ticker := time.NewTicker(s.interval)
 	defer ticker.Stop()
 
 	logrus.Info("stale checker started")
@@ -79,7 +82,6 @@ func (s *StaleChecker) run(ctx context.Context) {
 
 // handle выполняет одну итерацию проверки stale media.
 func (w *StaleChecker) handle(ctx context.Context) {
-
 	// ограничим время одной итерации
 	iterCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()

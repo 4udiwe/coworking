@@ -4,7 +4,6 @@ type UploadInput struct {
 	FileName     string
 	ContentType  string
 	Data         []byte
-	UploadedBy   string
 }
 
 type UploadResult struct {
