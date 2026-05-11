@@ -13,22 +13,23 @@
 | Notification | Уведомления (polling + FCM)              |[notification-service](backend/notification-service/README.md)|
 | Analytics    | OLAP-аналитика на ClickHouse             |[analytics-service](backend/analytics-service/README.md)      |
 | Scheduler    | Таймеры и отложенные задачи              |[scheduler-service](backend/scheduler-service/README.md)      |
+| Media        | Хранение медиа файлов                    |[media-service](backend/media-service/README.md)              |
 | Gateway      | API Gateway, rate limiting, роутинг      |[gateway](backend/gateway/README.md)                          |
 
 
 ## Архитектура
 
 ```
-   Flutter App / Web Admin
-           │
-           ▼
-       [Gateway]  ── rate limiting, routing
-           │
-   ┌───────┼──────────────┐──────────────┐
-   ▼       ▼              ▼              ▼
-[Auth] [Booking]    [Notification]  [Analytics]  [Scheduler]
-   │       │              │              │            │
-Postgres Postgres     Postgres      ClickHouse    Postgres
+                           Flutter App / Web Admin
+                                 │
+                                 ▼
+                              [Gateway]  ── rate limiting, routing
+                                 │
+   ┌──────────────────────┐──────┼───────┐───────────────────────┐──────┐
+   ▼       ▼              ▼              ▼                       ▼      |
+[Auth] [Booking]    [Notification]  [Analytics]  [Scheduler]  [Media]   |
+   │       │              │              │            │          |      ▼
+Postgres Postgres     Postgres      ClickHouse    Postgres     Mongo - MinIO
    |       |              |              |            |
    └───────└─────────── Kafka ───────────┘────────────┘
 ```
@@ -62,6 +63,18 @@ Notification service реализует гарантию **at-least-once**: ув
 
 Фоновый worker отслеживает срабатывание таймеров и публикует события в Kafka. При перезапуске сервиса таймеры не теряются — они восстанавливаются из БД.
 
+### 🖼️ Media Service: Async обработка + Stale Recovery
+
+Media service реализует асинхронную конвейерную обработку изображений с гарантией доставки через stale recovery механизм:
+
+- Синхронный thumbnail — пользователь сразу получает URL preview после загрузки.
+
+- Асинхронный ресайз — генерация medium и large размеров выполняется в фоне.
+
+- Stale Recovery Worker — при зависании обработки медиа статусе processing перезапускает генерацию.
+
+Хранит метаданные (MongoDB) и файлы (MinIO).
+
 ### 📊 Аналитика: ClickHouse + Materialized Views
 
 Аналитический сервис использует **ClickHouse** как OLAP-хранилище. Вся аналитика строится на **materialized views** — данные предагрегируются при вставке, а не при запросе:
@@ -84,14 +97,14 @@ Notification service реализует гарантию **at-least-once**: ув
 
 ## Стек
 
-| Слой | Технологии |
-|---|---|
-| Backend | Go |
-| Базы данных | PostgreSQL (x4), ClickHouse |
-| Брокер сообщений | Apache Kafka |
-| Клиент | Flutter (iOS, Android, Web) |
-| Observability | Grafana Loki + Promtail — централизованный сбор логов всех сервисов; готовый дашборд из коробки |
-| Инфраструктура | Docker Compose |
+| Слой             | Технологии                                                                                      |
+|------------------|-------------------------------------------------------------------------------------------------|
+| Backend          | Go                                                                                              |
+| Базы данных      | PostgreSQL, ClickHouse, MongoDB, MinIO                                                          |
+| Брокер сообщений | Apache Kafka                                                                                    |
+| Клиент           | Flutter (iOS, Android, Web)                                                                     |
+| Observability    | Grafana Loki + Promtail — централизованный сбор логов всех сервисов; готовый дашборд из коробки |
+| Инфраструктура   | Docker Compose                                                                                  |
 
 
 ## Запуск
