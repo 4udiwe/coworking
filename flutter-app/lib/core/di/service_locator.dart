@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:coworking_app/core/models/auth_tokens.dart';
 import 'package:coworking_app/core/services/fcm_service.dart';
+import 'package:coworking_app/features/admin/data/media_reposotory.dart';
 import 'package:coworking_app/features/auth/bloc/auth_event.dart';
 import 'package:coworking_app/features/notification/bloc/notification_bloc.dart';
 import 'package:coworking_app/features/user/data/user_repository.dart';
@@ -87,6 +88,10 @@ Future<void> init() async {
 
   sl.registerLazySingleton<NotificationRepository>(
     () => NotificationRepository(apiClient: sl()),
+  );
+
+  sl.registerLazySingleton<MediaRepository>(
+    () => MediaRepository(apiClient: sl()),
   );
 
   // -----------------------------

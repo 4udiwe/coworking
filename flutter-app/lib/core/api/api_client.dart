@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import '../storage/token_storage.dart';
 import 'auth_interceptor.dart';
 import '../models/auth_tokens.dart';
+import 'package:http_parser/http_parser.dart';
+import 'package:cross_file/cross_file.dart';
 
 class ApiClient {
   final String baseUrl;
@@ -18,9 +20,13 @@ class ApiClient {
     required this.tokenStorage,
     required this.onRefresh,
     required VoidCallback onSessionExpired,
-  }) : _interceptor = AuthInterceptor(tokenStorage: tokenStorage, onSessionExpired: onSessionExpired);
+  }) : _interceptor = AuthInterceptor(
+         tokenStorage: tokenStorage,
+         onSessionExpired: onSessionExpired,
+       );
 
-  Future<http.Response> get(String path, {
+  Future<http.Response> get(
+    String path, {
     Map<String, String>? headers,
     Map<String, dynamic>? queryParameters,
   }) async {
@@ -29,7 +35,7 @@ class ApiClient {
     if (queryParameters != null && queryParameters.isNotEmpty) {
       uri = uri.replace(
         queryParameters: queryParameters.map(
-              (key, value) => MapEntry(key, value?.toString()),
+          (key, value) => MapEntry(key, value?.toString()),
         ),
       );
     }
@@ -100,10 +106,46 @@ class ApiClient {
     }, onRefresh: onRefresh);
   }
 
-  Future<Map<String, String>> _headers(Map<String, String>? headers) async {
+  Future<http.Response> multipart(
+    String path, {
+    required XFile file,
+    String field = 'file',
+    Map<String, String>? headers,
+  }) async {
+    return _interceptor.execute(() async {
+      final uri = Uri.parse('$baseUrl$path');
+
+      final request = http.MultipartRequest('POST', uri);
+
+      final authHeaders = await _headers(headers, json: false);
+
+      request.headers.addAll(authHeaders);
+
+      final bytes = await file.readAsBytes();
+
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          field,
+          bytes,
+          filename: file.name,
+          contentType: MediaType('image', 'webp'),
+        ),
+      );
+
+      final streamed = await request.send();
+
+      return http.Response.fromStream(streamed);
+    }, onRefresh: onRefresh);
+  }
+
+  Future<Map<String, String>> _headers(
+    Map<String, String>? headers, {
+    bool json = true,
+  }) async {
     final tokens = await tokenStorage.readTokens();
 
     final Map<String, String> authHeader = {};
+
     if (tokens != null && tokens.accessToken.isNotEmpty) {
       authHeader['Authorization'] = 'Bearer ${tokens.accessToken}';
     }
@@ -111,7 +153,7 @@ class ApiClient {
     return {
       ...?headers,
       ...authHeader,
-      'Content-Type': 'application/json',
+      if (json) 'Content-Type': 'application/json',
     };
   }
 }
