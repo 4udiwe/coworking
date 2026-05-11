@@ -8,9 +8,7 @@ import 'coworking_state.dart';
 class CoworkingBloc extends Bloc<CoworkingEvent, CoworkingState> {
   final CoworkingRepository repository;
 
-  CoworkingBloc({required this.repository})
-      : super(const CoworkingState()) {
-
+  CoworkingBloc({required this.repository}) : super(const CoworkingState()) {
     on<FetchCoworkings>(_onFetchCoworkings);
     on<SelectCoworking>(_onSelectCoworking);
     on<FetchLayout>(_onFetchLayout);
@@ -20,37 +18,38 @@ class CoworkingBloc extends Bloc<CoworkingEvent, CoworkingState> {
     on<ClearAction>(_onClearAction);
 
     on<SelectPlace>((event, emit) {
-      final availableIds = state.availablePlaces.data?.map((e) => e.id).toSet() ?? {};
+      final availableIds =
+          state.availablePlaces.data?.map((e) => e.id).toSet() ?? {};
       if (!availableIds.contains(event.place.id)) {
         return;
       }
 
-      emit(state.copyWith(
-        selectedPlace: () => event.place,
-      ));
+      emit(state.copyWith(selectedPlace: () => event.place));
     });
 
     on<SelectTimeRange>(_onSelectTimeRange);
   }
 
   Future<void> _onSelectTimeRange(
-      SelectTimeRange event,
-      Emitter<CoworkingState> emit,
-      ) async {
-
-    emit(state.copyWith(
-      selectedStart: () => event.start,
-      selectedEnd: () => event.end,
-      selectedPlace: () => null,
-    ));
-
+    SelectTimeRange event,
+    Emitter<CoworkingState> emit,
+  ) async {
+    emit(
+      state.copyWith(
+        selectedStart: () => event.start,
+        selectedEnd: () => event.end,
+        selectedPlace: () => null,
+      ),
+    );
 
     if (state.selectedCoworking.data != null) {
-      add(FetchAvailablePlaces(
-        state.selectedCoworking.data!.id,
-        event.start,
-        event.end,
-      ));
+      add(
+        FetchAvailablePlaces(
+          state.selectedCoworking.data!.id,
+          event.start,
+          event.end,
+        ),
+      );
     }
   }
 
@@ -58,28 +57,32 @@ class CoworkingBloc extends Bloc<CoworkingEvent, CoworkingState> {
   /// COWORKINGS LIST
   /// =======================
   Future<void> _onFetchCoworkings(
-      FetchCoworkings event,
-      Emitter<CoworkingState> emit,
-      ) async {
-    emit(state.copyWith(
-      coworkings: state.coworkings.copyWith(status: LoadStatus.loading),
-    ));
+    FetchCoworkings event,
+    Emitter<CoworkingState> emit,
+  ) async {
+    emit(
+      state.copyWith(
+        coworkings: state.coworkings.copyWith(status: LoadStatus.loading),
+      ),
+    );
 
     try {
       final data = await repository.getCoworkings();
-      emit(state.copyWith(
-        coworkings: LoadState(
-          data: data,
-          status: LoadStatus.success,
+      print("Fetched coworkings: ${data.length}");
+      print(
+        "Coworkings: ${data.map((c) => c.name + "images count ${c.imageIDs.length}").join(', ')}",
+      );
+      emit(
+        state.copyWith(
+          coworkings: LoadState(data: data, status: LoadStatus.success),
         ),
-      ));
+      );
     } catch (e) {
-      emit(state.copyWith(
-        coworkings: LoadState(
-          status: LoadStatus.error,
-          error: e.toString(),
+      emit(
+        state.copyWith(
+          coworkings: LoadState(status: LoadStatus.error, error: e.toString()),
         ),
-      ));
+      );
     }
   }
 
@@ -87,19 +90,21 @@ class CoworkingBloc extends Bloc<CoworkingEvent, CoworkingState> {
   /// SELECT COWORKING
   /// =======================
   Future<void> _onSelectCoworking(
-      SelectCoworking event,
-      Emitter<CoworkingState> emit,
-      ) async {
+    SelectCoworking event,
+    Emitter<CoworkingState> emit,
+  ) async {
     // При выборе нового коворкинга обязательно очищаем старые данные деталей,
     // чтобы UI не отображал данные предыдущего коворкинга во время загрузки.
-    emit(state.copyWith(
-      selectedCoworking: const LoadState(status: LoadStatus.loading),
-      layout: const LoadState(),
-      places: const LoadState(),
-      availablePlaces: const LoadState(),
-      selectedPlace: () => null,
-      currentView: CoworkingView.details,
-    ));
+    emit(
+      state.copyWith(
+        selectedCoworking: const LoadState(status: LoadStatus.loading),
+        layout: const LoadState(),
+        places: const LoadState(),
+        availablePlaces: const LoadState(),
+        selectedPlace: () => null,
+        currentView: CoworkingView.details,
+      ),
+    );
 
     try {
       final coworking = await repository.getCoworkingById(event.id);
@@ -112,26 +117,29 @@ class CoworkingBloc extends Bloc<CoworkingEvent, CoworkingState> {
       final defaultStart = DateTime(now.year, now.month, now.day, now.hour + 1);
       final defaultEnd = DateTime(now.year, now.month, now.day, now.hour + 2);
 
-      emit(state.copyWith(
-        selectedCoworking: LoadState(
-          data: coworking,
-          status: LoadStatus.success,
+      emit(
+        state.copyWith(
+          selectedCoworking: LoadState(
+            data: coworking,
+            status: LoadStatus.success,
+          ),
+          selectedStart: () => defaultStart,
+          selectedEnd: () => defaultEnd,
         ),
-        selectedStart: () => defaultStart,
-        selectedEnd: () => defaultEnd,
-      ));
+      );
 
       add(FetchLayout(event.id));
       add(FetchPlaces(event.id));
       add(FetchAvailablePlaces(event.id, defaultStart, defaultEnd));
-
     } catch (e) {
-      emit(state.copyWith(
-        selectedCoworking: LoadState(
-          status: LoadStatus.error,
-          error: e.toString(),
+      emit(
+        state.copyWith(
+          selectedCoworking: LoadState(
+            status: LoadStatus.error,
+            error: e.toString(),
+          ),
         ),
-      ));
+      );
     }
   }
 
@@ -139,28 +147,24 @@ class CoworkingBloc extends Bloc<CoworkingEvent, CoworkingState> {
   /// LAYOUT
   /// =======================
   Future<void> _onFetchLayout(
-      FetchLayout event,
-      Emitter<CoworkingState> emit,
-      ) async {
-    emit(state.copyWith(
-      layout: const LoadState(status: LoadStatus.loading),
-    ));
+    FetchLayout event,
+    Emitter<CoworkingState> emit,
+  ) async {
+    emit(state.copyWith(layout: const LoadState(status: LoadStatus.loading)));
 
     try {
       final layout = await repository.getLayout(event.coworkingId);
-      emit(state.copyWith(
-        layout: LoadState(
-          data: layout,
-          status: LoadStatus.success,
+      emit(
+        state.copyWith(
+          layout: LoadState(data: layout, status: LoadStatus.success),
         ),
-      ));
+      );
     } catch (e) {
-      emit(state.copyWith(
-        layout: LoadState(
-          status: LoadStatus.error,
-          error: e.toString(),
+      emit(
+        state.copyWith(
+          layout: LoadState(status: LoadStatus.error, error: e.toString()),
         ),
-      ));
+      );
     }
   }
 
@@ -168,28 +172,24 @@ class CoworkingBloc extends Bloc<CoworkingEvent, CoworkingState> {
   /// PLACES
   /// =======================
   Future<void> _onFetchPlaces(
-      FetchPlaces event,
-      Emitter<CoworkingState> emit,
-      ) async {
-    emit(state.copyWith(
-      places: const LoadState(status: LoadStatus.loading),
-    ));
+    FetchPlaces event,
+    Emitter<CoworkingState> emit,
+  ) async {
+    emit(state.copyWith(places: const LoadState(status: LoadStatus.loading)));
 
     try {
       final places = await repository.getPlaces(event.coworkingId);
-      emit(state.copyWith(
-        places: LoadState(
-          data: places,
-          status: LoadStatus.success,
+      emit(
+        state.copyWith(
+          places: LoadState(data: places, status: LoadStatus.success),
         ),
-      ));
+      );
     } catch (e) {
-      emit(state.copyWith(
-        places: LoadState(
-          status: LoadStatus.error,
-          error: e.toString(),
+      emit(
+        state.copyWith(
+          places: LoadState(status: LoadStatus.error, error: e.toString()),
         ),
-      ));
+      );
     }
   }
 
@@ -197,12 +197,17 @@ class CoworkingBloc extends Bloc<CoworkingEvent, CoworkingState> {
   /// AVAILABLE PLACES
   /// =======================
   Future<void> _onFetchAvailablePlaces(
-      FetchAvailablePlaces event,
-      Emitter<CoworkingState> emit,
-      ) async {
-    emit(state.copyWith(
-      availablePlaces: LoadState(status: LoadStatus.loading, data: state.availablePlaces.data),
-    ));
+    FetchAvailablePlaces event,
+    Emitter<CoworkingState> emit,
+  ) async {
+    emit(
+      state.copyWith(
+        availablePlaces: LoadState(
+          status: LoadStatus.loading,
+          data: state.availablePlaces.data,
+        ),
+      ),
+    );
 
     try {
       final result = await repository.getAvailablePlaces(
@@ -211,19 +216,23 @@ class CoworkingBloc extends Bloc<CoworkingEvent, CoworkingState> {
         event.end,
       );
 
-      emit(state.copyWith(
-        availablePlaces: LoadState(
-          data: result.places,
-          status: LoadStatus.success,
+      emit(
+        state.copyWith(
+          availablePlaces: LoadState(
+            data: result.places,
+            status: LoadStatus.success,
+          ),
         ),
-      ));
+      );
     } catch (e) {
-      emit(state.copyWith(
-        availablePlaces: LoadState(
-          status: LoadStatus.error,
-          error: e.toString(),
+      emit(
+        state.copyWith(
+          availablePlaces: LoadState(
+            status: LoadStatus.error,
+            error: e.toString(),
+          ),
         ),
-      ));
+      );
     }
   }
 
@@ -231,58 +240,62 @@ class CoworkingBloc extends Bloc<CoworkingEvent, CoworkingState> {
   /// BOOKING
   /// =======================
   Future<void> _onCreateBooking(
-      CreateBooking event,
-      Emitter<CoworkingState> emit,
-      ) async {
-    emit(state.copyWith(
-      bookingResult:
-      state.bookingResult.copyWith(status: LoadStatus.loading),
-    ));
+    CreateBooking event,
+    Emitter<CoworkingState> emit,
+  ) async {
+    emit(
+      state.copyWith(
+        bookingResult: state.bookingResult.copyWith(status: LoadStatus.loading),
+      ),
+    );
 
     try {
-      await repository.createBooking(
-        event.placeId,
-        event.start,
-        event.end,
+      await repository.createBooking(event.placeId, event.start, event.end);
+
+      add(
+        FetchAvailablePlaces(
+          state.selectedCoworking.data!.id,
+          event.start,
+          event.end,
+        ),
       );
 
-      add(FetchAvailablePlaces(state.selectedCoworking.data!.id, event.start, event.end));
-
-      emit(state.copyWith(
-        selectedPlace: () => null,
-        bookingResult: LoadState(
-          status: LoadStatus.success,
+      emit(
+        state.copyWith(
+          selectedPlace: () => null,
+          bookingResult: LoadState(status: LoadStatus.success),
+          actionMessage: () => "Booking created successfully",
+          messageId: DateTime.now().millisecondsSinceEpoch.toString(),
+          isError: false,
         ),
-        actionMessage: () => "Booking created successfully",
-        messageId: DateTime.now().millisecondsSinceEpoch.toString(),
-        isError: false,
-      ));
+      );
     } catch (e) {
-      emit(state.copyWith(
-        bookingResult: LoadState(
-          status: LoadStatus.error,
-          error: e.toString(),
+      emit(
+        state.copyWith(
+          bookingResult: LoadState(
+            status: LoadStatus.error,
+            error: e.toString(),
+          ),
+          actionMessage: () => e.toString(),
+          messageId: DateTime.now().millisecondsSinceEpoch.toString(),
+          isError: true,
         ),
-        actionMessage: () => e.toString(),
-        messageId: DateTime.now().millisecondsSinceEpoch.toString(),
-        isError: true,
-      ));
+      );
     }
   }
 
-  void _onClearAction(
-      ClearAction event,
-      Emitter<CoworkingState> emit,
-      ) {
-    emit(state.copyWith(
-      selectedPlace: () => null,
-      selectedCoworking: const LoadState(),
-      layout: const LoadState(),
-      places: const LoadState(),
-      availablePlaces: const LoadState(),
-      bookingResult: const LoadState(),
-      actionMessage: () => null,
-      isError: false,
-    ));
+  void _onClearAction(ClearAction event, Emitter<CoworkingState> emit) {
+    emit(
+      state.copyWith(
+        selectedPlace: () => null,
+        selectedCoworking: const LoadState(),
+        layout: const LoadState(),
+        places: const LoadState(),
+        availablePlaces: const LoadState(),
+        bookingResult: const LoadState(),
+        actionMessage: () => null,
+        isError: false,
+      ),
+    );
   }
 }

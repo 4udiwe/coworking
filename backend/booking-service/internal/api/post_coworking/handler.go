@@ -26,6 +26,7 @@ func (h *handler) Handle(ctx echo.Context, in Request) error {
 	coworking := entity.Coworking{
 		Name:    in.Name,
 		Address: in.Address,
+		MediaIDs: in.MediaIDs,
 	}
 	err := h.s.CreateCoworking(ctx.Request().Context(), coworking)
 

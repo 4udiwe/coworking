@@ -8,7 +8,8 @@ abstract class AdminEvent {}
 class CreateCoworkingEvent extends AdminEvent {
   final String name;
   final String address;
-  CreateCoworkingEvent(this.name, this.address);
+  final List<String> mediaIDs;
+  CreateCoworkingEvent(this.name, this.address, this.mediaIDs);
 }
 
 class UpdateCoworkingEvent extends AdminEvent {

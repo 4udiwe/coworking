@@ -12,6 +12,7 @@ type rawCoworking struct {
 	Name      string    `db:"name"`
 	Address   string    `db:"address"`
 	IsActive  bool      `db:"is_active"`
+	MediaIDs  []string  `db:"media_ids"`
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
 }
@@ -22,6 +23,7 @@ func (r *rawCoworking) toEntity() entity.Coworking {
 		Name:      r.Name,
 		Address:   r.Address,
 		IsActive:  r.IsActive,
+		MediaIDs:  r.MediaIDs,
 		CreatedAt: r.CreatedAt,
 		UpdatedAt: r.UpdatedAt}
 }

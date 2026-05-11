@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	"github.com/lib/pq"
 )
 
 type CoworkingRepository struct {
@@ -26,19 +27,19 @@ func New(pg *postgres.Postgres) *CoworkingRepository {
 }
 
 func (r *CoworkingRepository) Create(ctx context.Context, coworking entity.Coworking) error {
-	logrus.Debugf("INSERTING COWORKING: name =%v, address = %v", coworking.Name, coworking.Address)
-
 	query, args, _ := r.Builder.
 		Insert("coworking").
 		Columns(
 			"name",
 			"address",
 			"is_active",
+			"media_ids",
 		).
 		Values(
 			coworking.Name,
 			coworking.Address,
 			coworking.IsActive,
+			pq.Array(coworking.MediaIDs),
 		).
 		Suffix("RETURNING id").
 		ToSql()
@@ -61,6 +62,7 @@ func (r *CoworkingRepository) GetByID(ctx context.Context, id uuid.UUID) (entity
 			"name",
 			"address",
 			"is_active",
+			"media_ids",
 			"created_at",
 			"updated_at",
 		).
@@ -93,6 +95,7 @@ func (r *CoworkingRepository) Update(ctx context.Context, coworking entity.Cowor
 		Set("name", coworking.Name).
 		Set("address", coworking.Address).
 		Set("is_active", coworking.IsActive).
+		Set("media_ids", pq.Array(coworking.MediaIDs)).
 		Set("updated_at", time.Now()).
 		Where(squirrel.Eq{"id": coworking.ID}).
 		ToSql()
@@ -118,6 +121,7 @@ func (r *CoworkingRepository) List(ctx context.Context) ([]entity.Coworking, err
 			"name",
 			"address",
 			"is_active",
+			"media_ids",
 			"created_at",
 			"updated_at",
 		).

@@ -3,9 +3,11 @@ import 'package:coworking_app/core/models/booking.dart';
 import 'package:coworking_app/core/models/coworking.dart';
 import 'package:coworking_app/core/models/layout.dart';
 import 'package:coworking_app/core/models/place.dart';
+import 'package:coworking_app/core/models/upload_media.dart';
 import '../../../../core/api/api_client.dart';
 import '../../../core/models/user.dart';
 import '../../../core/utils/check_response_status.dart';
+import 'package:cross_file/cross_file.dart';
 
 class AdminRepository {
   final ApiClient apiClient;
@@ -148,10 +150,14 @@ class AdminRepository {
   }
   // 🏢 Coworking admin
 
-  Future<void> createCoworking(String name, String address) async {
+  Future<void> createCoworking({
+    required String name,
+    required String address,
+    required List<String> mediaIDs,
+  }) async {
     final response = await apiClient.post(
       '/admin/coworkings',
-      body: {'name': name, 'address': address},
+      body: {'name': name, 'address': address, 'mediaIDs': mediaIDs},
     );
 
     checkStatus(response, validCodes: [201]);

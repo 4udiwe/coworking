@@ -284,7 +284,11 @@ class AdminBloc extends Bloc<AdminEvent, AdminState> {
     Emitter<AdminState> emit,
   ) async {
     try {
-      await repository.createCoworking(event.name, event.address);
+      await repository.createCoworking(
+        name: event.name,
+        address: event.address,
+        mediaIDs: event.mediaIDs,
+      );
 
       emit(state.copyWith(actionMessage: 'Coworking created', isError: false));
 

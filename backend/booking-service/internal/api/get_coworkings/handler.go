@@ -38,6 +38,7 @@ func (h *handler) Handle(ctx echo.Context, in Request) error {
 				Name:      c.Name,
 				Address:   c.Address,
 				IsActive:  c.IsActive,
+				MediaIDs:  c.MediaIDs,
 				CreatedAt: c.CreatedAt,
 				UpdatedAt: c.UpdatedAt,
 			}

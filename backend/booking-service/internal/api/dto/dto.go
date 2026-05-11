@@ -14,6 +14,7 @@ type Coworking struct {
 	Name      string    `json:"name"`
 	Address   string    `json:"address"`
 	IsActive  bool      `json:"isActive"`
+	MediaIDs  []string  `json:"mediaIds" validate:"required"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
@@ -72,14 +73,16 @@ type PaginationMeta struct {
 // Request DTOs
 
 type CreateCoworkingRequest struct {
-	Name    string `json:"name" validate:"required,min=2,max=200"`
-	Address string `json:"address" validate:"required,min=5,max=500"`
+	Name     string   `json:"name" validate:"required,min=2,max=200"`
+	Address  string   `json:"address" validate:"required,min=5,max=500"`
+	MediaIDs []string `json:"mediaIds" validate:"required"`
 }
 
 type UpdateCoworkingRequest struct {
 	ID       uuid.UUID `param:"coworkingId" validate:"required"`
 	Name     string    `json:"name" validate:"required,min=2,max=200"`
 	Address  string    `json:"address" validate:"required,min=5,max=500"`
+	MediaIDs []string  `json:"mediaIds"`
 	IsActive bool      `json:"isActive"`
 }
 
@@ -133,8 +136,8 @@ type GetAdminActiveBookingsRequest struct {
 }
 
 type GetBookingsByUserRequest struct {
-	Page     int     `query:"page" validate:"required,min=1"`
-	PageSize int     `query:"pageSize" validate:"required,min=1,max=100"`
+	Page     int `query:"page" validate:"required,min=1"`
+	PageSize int `query:"pageSize" validate:"required,min=1,max=100"`
 }
 
 type CancelBookingRequest struct {

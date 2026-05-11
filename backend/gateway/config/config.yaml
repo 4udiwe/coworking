@@ -34,3 +34,10 @@ routes:
 
   - path: /analytics
     upstream: http://analytics-service:8083
+
+  - path: /admin/media
+    upstream: http://media-service:8084
+  
+  - path: /media
+    upstream: http://minio:9000
+

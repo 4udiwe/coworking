@@ -1,3 +1,4 @@
+import 'package:coworking_app/features/admin/presentation/widgets/create_coworking/create_coworking_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:coworking_app/core/l10n/localization_helper.dart';
@@ -26,6 +27,29 @@ class AdminSidebar extends StatelessWidget {
             ),
           ),
           const Divider(),
+
+          // ── Add coworking button ──
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Add Coworking'),
+                style: OutlinedButton.styleFrom(
+                  alignment: Alignment.centerLeft,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: () => CreateCoworkingDialog.show(context),
+              ),
+            ),
+          ),
 
           /// 🔹 Upper part: coworkings list
           Expanded(
